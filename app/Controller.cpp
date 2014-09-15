@@ -31,7 +31,7 @@ Controller::Controller() : m{new Controller::Members{}} {
 Controller::~Controller() { }
 
 void Controller::newGame(GameMode mode) {
-    m->game = std::make_shared<Game>(mode);
+    m->game = std::make_shared<Game>(spaceTime(), mode);
 
     // TODO: Announce achievements.
 

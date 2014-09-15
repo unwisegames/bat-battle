@@ -48,7 +48,7 @@ public:
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits
     brac::Signal<void()> sharpshot;
 
-    Game(GameMode mode);
+    Game(brac::SpaceTime & st, GameMode mode);
     ~Game();
 
     State const & state() const;

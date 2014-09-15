@@ -15,8 +15,8 @@ enum Layer : cpLayers { l_play = 1<<0, l_fixtures = 1<<1 };
 enum CollisionType : cpCollisionType { ct_universe = 1, ct_sides, ct_dunk, ct_wall };
 
 struct CharacterImpl : BodyShapes<Character> {
-    CharacterImpl(int personality, vec2 const & pos)
-    : BodyShapes{newBody(1, INFINITY, pos), newBoxShape(1, 1), CP_NO_GROUP, l_play | l_fixtures}
+    CharacterImpl(cpSpace * space, int personality, vec2 const & pos)
+    : BodyShapes{space, newBody(1, INFINITY, pos), newBoxShape(1, 1), CP_NO_GROUP, l_play | l_fixtures}
     {
         for (auto & shape : shapes()) cpShapeSetElasticity(&*shape, 1);
     }
@@ -40,9 +40,11 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl> {
     size_t score_modifier = 0;
     std::unique_ptr<Ticker> tick;
     std::unique_ptr<CancelTimer> hoop_timer;
+
+    Members(SpaceTime & st) : Impl{st} { }
 };
 
-Game::Game(GameMode mode) : m{new Members} {
+Game::Game(SpaceTime & st, GameMode mode) : GameBase{st}, m{new Members{st}} {
     m->mode = mode;
 }
 
