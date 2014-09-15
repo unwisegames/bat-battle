@@ -15,7 +15,7 @@ Menu::Menu() {
 bool Menu::onUpdate(float dt) { return true; }
 
 void Menu::onDraw() {
-    SpriteProgram::draw(atlas.title, pmv() * mat4::translate({0, 2.5, 0}) * mat4::scale(1.8));
+    SpriteProgram::draw(atlas.title, pmv() * mat4::translate({0, 1.7, 0}) * mat4::scale(1.8));
 
     play      ->draw(pmv());
 }

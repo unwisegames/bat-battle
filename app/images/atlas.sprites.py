@@ -10,9 +10,9 @@ def door(X, Y):
     return floodfill((X, Y), scale=8, origin='centroid')
 
 sprites(
-    title=floodfill((3, 2), scale=11, origin='centroid'),
+    title=floodfill((3, 2), scale=7, origin='centroid'),
     play=[
-        floodfill((10, 2), scale=12, origin='center'),
-        floodfill((10, 5), scale=12, origin='center')
+        floodfill((10, 2), scale=8, origin='center'),
+        floodfill((10, 5), scale=8, origin='center')
     ],
 )

@@ -13,7 +13,7 @@ public:
     bool newGame = false;
     GameMode mode = m_menu;
 
-    std::shared_ptr<Button> play     = makeButton(atlas.play,     { 0, -2 });
+    std::shared_ptr<Button> play     = makeButton(atlas.play,     { 0, -1.5 });
 
     Menu();
 
