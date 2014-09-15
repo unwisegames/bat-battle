@@ -17,7 +17,7 @@ struct Bird : brac::Actor {
     Character * captive() const;
 };
 
-enum GameMode { m_menu, m_arcade, m_buzzer };
+enum GameMode { m_menu, m_play, m_arcade, m_buzzer };
 constexpr GameMode MODE = m_menu;
 
 class Game : public brac::GameBase, public std::enable_shared_from_this<Game> {

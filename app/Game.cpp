@@ -1,10 +1,13 @@
 #include "Game.h"
+#include "bats.sprites.h"
 
 #include <bricabrac/Game/GameActorImpl.h>
 #include <bricabrac/Game/Timer.h>
 #include <bricabrac/Math/MathUtil.h>
 #include <bricabrac/Math/Random.h>
 #include <bricabrac/Logging/Logging.h>
+
+constexpr float GRAVITY = -30;
 
 using namespace brac;
 
@@ -26,11 +29,19 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 };
 
-struct BirdImpl : BodyShapes<Bird> {
+enum class BirdType { grey, yellow };
 
+struct BirdImpl : BodyShapes<Bird> {
+    BirdType type_;
+
+    BirdImpl(cpSpace * space, BirdType type, vec2 const & pos)
+    : BodyShapes{space, newStaticBody(pos), sensor(type == BirdType::grey ? bats.greybat : bats.yellowbat)}
+    {
+
+    }
 };
 
-struct Game::Members : Game::State, GameImpl<CharacterImpl> {
+struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl> {
     ShapePtr worldBox{sensor(boxShape(30, 30, {0, 0}, 0), ct_universe)};
     ShapePtr walls[3], hoop[2];
     ShapePtr dunk{sensor(segmentShape({-1, 6}, {1, 6}), ct_dunk)};
@@ -46,6 +57,18 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl> {
 
 Game::Game(SpaceTime & st, GameMode mode) : GameBase{st}, m{new Members{st}} {
     m->mode = mode;
+
+    if (mode == m_menu)
+    {
+        delay(0, [=]{ show_menu(); }).cancel(destroyed);
+    }
+    else
+    {
+        m->setGravity({0, GRAVITY});
+
+        m->emplace<BirdImpl>(BirdType::grey, vec2{-4, 0});
+        m->emplace<BirdImpl>(BirdType::yellow, vec2{2, 3});
+    }
 }
 
 Game::~Game() { }

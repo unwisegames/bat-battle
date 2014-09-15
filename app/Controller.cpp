@@ -1,4 +1,6 @@
 #include "Controller.h"
+#include "background.sprites.h"
+#include "Menu.h"
 
 #include "brag.h"
 
@@ -14,6 +16,8 @@ using namespace brac;
 struct Controller::Members {
     std::shared_ptr<Game> game;
     float angle = 0;
+    bool newGame = false;
+    GameMode mode = m_menu;
 
     // Persistent data
     Persistent<int> careerArcPoints{"careerArcPoints"};
@@ -31,7 +35,15 @@ Controller::Controller() : m{new Controller::Members{}} {
 Controller::~Controller() { }
 
 void Controller::newGame(GameMode mode) {
+    m->newGame = false;
     m->game = std::make_shared<Game>(spaceTime(), mode);
+
+    auto newGame = [=](GameMode mode) {
+        return [=]{
+            m->mode = mode;
+            m->newGame = true;
+        };
+    };
 
     // TODO: Announce achievements.
 
@@ -102,6 +114,7 @@ void Controller::newGame(GameMode mode) {
                     m->careerBuzPoints = *m->careerBuzPoints + static_cast<int>(score);
                     break;
                 case m_menu: break;
+                case m_play: break;
             }
             
             if (score >= 25) {
@@ -114,11 +127,22 @@ void Controller::newGame(GameMode mode) {
             brag::career = cp;
         }
     };
+
+    m->game->show_menu += [=] {
+        auto menu = emplaceController<Menu>();
+
+        menu->play->clicked += newGame(m_play);
+    };
+
 }
 
 bool Controller::onUpdate(float dt) {
     if (!m->game->update(dt)) {
         //newGame();
+    }
+    if (m->newGame) {
+        newGame(m->mode);
+        return false;
     }
     m->angle += dt;
     return true;
@@ -127,6 +151,12 @@ bool Controller::onUpdate(float dt) {
 void Controller::onDraw() {
     auto & sprite_context = AutoSprite<SpriteProgram>::context();
     sprite_context->tint = {1, 1, 1, 1};
+
+    SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, -7, 0}));
+
+    
+    SpriteProgram::draw(m->game->actors<Bird>       (), pmv());
+
 }
 
 void Controller::onResize(brac::vec2 const & size) {
