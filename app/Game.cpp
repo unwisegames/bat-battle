@@ -66,8 +66,8 @@ Game::Game(SpaceTime & st, GameMode mode) : GameBase{st}, m{new Members{st}} {
     {
         m->setGravity({0, GRAVITY});
 
-        m->emplace<BirdImpl>(BirdType::grey, vec2{-4, 0});
-        m->emplace<BirdImpl>(BirdType::yellow, vec2{2, 3});
+        m->emplace<BirdImpl>(BirdType::grey, vec2{-4, 10});
+        m->emplace<BirdImpl>(BirdType::yellow, vec2{2, 9});
     }
 }
 

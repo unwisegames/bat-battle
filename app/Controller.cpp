@@ -152,7 +152,7 @@ void Controller::onDraw() {
     auto & sprite_context = AutoSprite<SpriteProgram>::context();
     sprite_context->tint = {1, 1, 1, 1};
 
-    SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, -7, 0}));
+    SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 8.5, 0}));
 
     
     SpriteProgram::draw(m->game->actors<Bird>       (), pmv());
@@ -161,7 +161,7 @@ void Controller::onDraw() {
 
 void Controller::onResize(brac::vec2 const & size) {
     //float halfH = 0.5 * background.bg.size().y;
-    adaptiveOrtho(-10, -10, 10, 10, 0, -INFINITY, 6, 6);
+    adaptiveOrtho(-10, -10, 10, 10, 0, 0, 6, INFINITY);
 }
 
 std::unique_ptr<TouchHandler> Controller::onTouch(vec2 const & worldPos, float radius) {
