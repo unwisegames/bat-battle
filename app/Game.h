@@ -17,6 +17,8 @@ struct Bird : brac::Actor {
     Character * captive() const;
 };
 
+struct Dart : brac::Actor { };
+
 enum GameMode { m_menu, m_play, m_arcade, m_buzzer };
 constexpr GameMode MODE = m_menu;
 

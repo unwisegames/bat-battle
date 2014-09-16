@@ -156,6 +156,7 @@ void Controller::onDraw() {
 
     SpriteProgram::draw(m->game->actors<Bird>       (), pmv());
     SpriteProgram::draw(m->game->actors<Character>  (), pmv());
+    SpriteProgram::draw(m->game->actors<Dart>       (), pmv());
 }
 
 void Controller::onResize(brac::vec2 const & size) {

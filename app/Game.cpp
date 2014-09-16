@@ -10,33 +10,46 @@
 
 using namespace brac;
 
-enum Group : cpGroup { gr_platform = 1, gr_birds };
+enum Group : cpGroup { gr_bird = 1 };
 
-enum Layer : cpLayers { l_play = 1<<0, l_fixtures = 1<<1 };
+enum Layer : cpLayers { l_all = 1<<0, l_character = 1<<1 };
 
 enum CollisionType : cpCollisionType { ct_universe = 1 };
 
 struct CharacterImpl : BodyShapes<Character> {
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
-    : BodyShapes{space, newBody(1, INFINITY, pos), characters.characters[type][0], CP_NO_GROUP, l_play | l_fixtures}
+    : BodyShapes{space, newBody(1, INFINITY, pos), characters.characters[type][0], CP_NO_GROUP, l_all | l_character}
     {
         for (auto & shape : shapes()) cpShapeSetElasticity(&*shape, 1);
     }
 
-    void drop() {
-        setForce({0, 0});
+    void aim(float angle) {
+        setAngle(angle);
     }
 };
 
 struct BirdImpl : BodyShapes<Bird> {
     BirdImpl(cpSpace * space, int type, vec2 const & pos, vec2 const & vel)
-    : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_birds}
+    : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_bird, l_all}
     {
         setVel(vel);
     }
 };
 
-struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl> {
+struct DartImpl : BodyShapes<Dart> {
+    DartImpl(cpSpace * space, vec2 const & pos, vec2 const & vel)
+    : BodyShapes{space, newBody(1, 1, pos), characters.dart, CP_NO_GROUP, l_all}
+    {
+        setVel(vel);
+        setForce({0, -10});
+    }
+
+    virtual void doUpdate(float) override {
+        setAngle(::brac::angle(vel()));
+    }
+};
+
+struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> {
     ShapePtr worldBox{sensor(boxShape(30, 30, {0, 0}, 0), ct_universe)};
     ShapePtr walls[3], hoop[2];
     size_t n_for_n = 0;
@@ -67,7 +80,7 @@ Game::Game(SpaceTime & st, GameMode mode) : GameBase{st}, m{new Members{st}} {
         v.y = -v.y;
         bird.setVel(v);
         character.setVel(v);
-        for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_birds);
+        for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
     });
 }
 
@@ -76,6 +89,49 @@ Game::~Game() { }
 Game::State const & Game::state() const { return *m; }
 
 std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
+    CharacterImpl * character = nullptr;
+    AabbQuery(&m->spaceTime, cpBBNewForCircle(to_cpVect(p), radius), l_character, CP_NO_GROUP,
+              [&](cpShape *shape) {
+                  if (auto c = static_cast<CharacterImpl *>(cpShapeGetUserData(shape))) {
+                      character = c;
+                  }
+              });
+    if (character) {
+        struct CharacterAimAndFireHandler : TouchHandler {
+            std::weak_ptr<Game> weak_self;
+            CharacterImpl * character;
+            float angle = -0.5 * M_PI;
+            vec2 first_p;
+
+            CharacterAimAndFireHandler(Game & self, vec2 const & p, CharacterImpl * character)
+            : weak_self{self.shared_from_this()}
+            , character{character}
+            , first_p{p}
+            {
+                character->aim(angle);
+            }
+
+            ~CharacterAimAndFireHandler() {
+                if (auto self = weak_self.lock()) {
+                    // TODO: Return smoothly to upright posture.
+                    character->aim(0);
+                    self->m->emplace<DartImpl>(character->pos() + vec2::polar(1, angle + M_PI),
+                                               vec2::polar(10, angle + M_PI));
+                }
+            }
+
+            virtual void moved(vec2 const & p, bool) {
+                if (auto self = weak_self.lock()) {
+                    constexpr float gear_ratio = 0.5;
+                    angle = gear_ratio * (first_p.x - p.x) - 0.5 * M_PI;
+                    character->aim(angle);
+                }
+            }
+        };
+        
+        return std::unique_ptr<TouchHandler>{new CharacterAimAndFireHandler{*this, p, character}};
+    }
+
     return {};
 }
 
