@@ -154,9 +154,8 @@ void Controller::onDraw() {
 
     SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 8.5, 0}));
 
-    
     SpriteProgram::draw(m->game->actors<Bird>       (), pmv());
-
+    SpriteProgram::draw(m->game->actors<Character>  (), pmv());
 }
 
 void Controller::onResize(brac::vec2 const & size) {
