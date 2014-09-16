@@ -161,6 +161,11 @@ void Controller::onDraw() {
 
 void Controller::onResize(brac::vec2 const & size) {
     //float halfH = 0.5 * background.bg.size().y;
+    /*GameController::adaptiveOrtho(float l_inner, float l_outer,
+                                  float r_inner, float r_outer,
+                                  float b_inner, float b_outer,
+                                  float t_inner, float t_outer,
+                                  vec2 maxSizeMm)*/
     adaptiveOrtho(-10, -10, 10, 10, 0, 0, 6, INFINITY);
 }
 
