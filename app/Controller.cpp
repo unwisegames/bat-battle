@@ -1,6 +1,7 @@
 #include "Controller.h"
 #include "background.sprites.h"
 #include "font.sprites.h"
+#include "characters.sprites.h"
 #include "Menu.h"
 
 #include "brag.h"
@@ -171,6 +172,23 @@ void Controller::onDraw() {
     SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 9.1, 0}));
 
     SpriteProgram::draw(m->game->actors<Bird>       (), pmv());
+
+    for (auto const & c : m->game->actors<Character>()) {
+        if (c.isAiming()) {
+            float dt = 0.01;
+            vec2 p = c.pos() - vec2::polar(LAUNCH_OFFSET, c.angle());
+            vec2 v = -vec2::polar(LAUNCH_VELOCITY, c.angle());
+            vec2 g_dt = vec2{0, WORLD_GRAVITY} * dt;
+            for (int i = 0; p.y > 0; ++i) {
+                if (i % 4 == 0) {
+                    SpriteProgram::draw(characters.dot, pmv() * mat4::translate({p, 0}));
+                }
+                p += v * dt;
+                v += g_dt;
+            }
+        }
+    }
+
     SpriteProgram::draw(m->game->actors<Character>  (), pmv());
     SpriteProgram::draw(m->game->actors<Dart>       (), pmv());
 

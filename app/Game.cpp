@@ -17,14 +17,26 @@ enum Layer : cpLayers { l_all = 1<<0, l_character = 1<<1 };
 enum CollisionType : cpCollisionType { ct_universe = 1 };
 
 struct CharacterImpl : BodyShapes<Character> {
+    bool aiming_ = false;
+
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
     : BodyShapes{space, newBody(1, INFINITY, pos), characters.characters[type][0], CP_NO_GROUP, l_all | l_character}
     {
         for (auto & shape : shapes()) cpShapeSetElasticity(&*shape, 1);
     }
 
+    virtual bool isAiming() const override {
+        return aiming_;
+    }
+
     void aim(float angle) {
+        aiming_ = true;
         setAngle(angle);
+    }
+
+    void dontAim() {
+        aiming_ = false;
+        setAngle(0);
     }
 };
 
@@ -41,7 +53,7 @@ struct DartImpl : BodyShapes<Dart> {
     : BodyShapes{space, newBody(1, 1, pos), characters.dart, CP_NO_GROUP, l_all}
     {
         setVel(vel);
-        setForce({0, -10});
+        setForce({0, WORLD_GRAVITY});
     }
 
     virtual void doUpdate(float) override {
@@ -136,9 +148,9 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
             ~CharacterAimAndFireHandler() {
                 if (auto self = weak_self.lock()) {
                     // TODO: Return smoothly to upright posture.
-                    character->aim(0);
-                    self->m->emplace<DartImpl>(character->pos() + vec2::polar(1, angle + M_PI),
-                                               vec2::polar(14, angle + M_PI));
+                    character->dontAim();
+                    self->m->emplace<DartImpl>(character->pos() + vec2::polar(LAUNCH_OFFSET, angle + M_PI),
+                                               vec2::polar(LAUNCH_VELOCITY, angle + M_PI));
                 }
             }
 
