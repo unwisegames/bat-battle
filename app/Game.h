@@ -1,6 +1,9 @@
 #ifndef INCLUDED__Bounce__Game_h
 #define INCLUDED__Bounce__Game_h
 
+#include "UI.h"
+#include "atlas.sprites.h"
+
 #include <bricabrac/Game/GameActor.h>
 #include <bricabrac/Utility/Signal.h>
 
@@ -34,6 +37,8 @@ public:
         std::string alert = "";
         GameMode mode;
         size_t clock = 0;
+        std::shared_ptr<Button> back{std::make_shared<Button>(atlas.back, brac::vec2{-9.2, 10})};
+        std::shared_ptr<Button> restart{std::make_shared<Button>(atlas.restart, brac::vec2{-7.9, 10})};
     };
 
     brac::Signal<void()> show_menu;
@@ -50,7 +55,7 @@ public:
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits
     brac::Signal<void()> sharpshot;
 
-    Game(brac::SpaceTime & st, GameMode mode);
+    Game(brac::SpaceTime & st, GameMode mode, float top);
     ~Game();
 
     State const & state() const;

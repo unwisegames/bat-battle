@@ -61,12 +61,15 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> 
     Members(SpaceTime & st) : Impl{st} { }
 };
 
-Game::Game(SpaceTime & st, GameMode mode) : GameBase{st}, m{new Members{st}} {
+Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Members{st}} {
     m->mode = mode;
 
     if (mode == m_menu) {
         delay(0, [=]{ show_menu(); }).cancel(destroyed);
     } else {
+        m->back->setY(top - 0.8);
+        m->restart->setY(top - 0.8);
+
         m->tick = {3, [=]{
             m->emplace<BirdImpl>(0, vec2{-4, 10}, vec2{1, -1});
         }};
@@ -89,6 +92,13 @@ Game::~Game() { }
 Game::State const & Game::state() const { return *m; }
 
 std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
+    if (auto backHandler = m->back->handleTouch(p)) {
+        return backHandler;
+    }
+    if (auto restartHandler = m->restart->handleTouch(p)) {
+        return restartHandler;
+    }
+
     CharacterImpl * character = nullptr;
     AabbQuery(&m->spaceTime, cpBBNewForCircle(to_cpVect(p), radius), l_character, CP_NO_GROUP,
               [&](cpShape *shape) {

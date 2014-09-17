@@ -15,4 +15,12 @@ sprites(
         floodfill((10, 2), scale=8, origin='center'),
         floodfill((10, 5), scale=8, origin='center')
     ],
+    restart=[
+        floodfill((1, 4), scale=8, origin='center'),
+        floodfill((3, 4), scale=8, origin='center')
+    ],
+    back=[
+        floodfill((5, 4), scale=8, origin='center'),
+        floodfill((7, 4), scale=8, origin='center')
+    ],
 )

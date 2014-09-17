@@ -37,6 +37,7 @@ public:
 
     void draw(brac::mat4 pmv);
     bool contains(brac::vec2 v);
+    void setY(float y) { pos_.y = y; };
 
     bool pressed = false;
 

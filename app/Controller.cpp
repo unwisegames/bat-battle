@@ -18,6 +18,7 @@ struct Controller::Members {
     float angle = 0;
     bool newGame = false;
     GameMode mode = m_menu;
+    float top = 0;
 
     // Persistent data
     Persistent<int> careerArcPoints{"careerArcPoints"};
@@ -36,7 +37,9 @@ Controller::~Controller() { }
 
 void Controller::newGame(GameMode mode) {
     m->newGame = false;
-    m->game = std::make_shared<Game>(spaceTime(), mode);
+    m->game = std::make_shared<Game>(spaceTime(), mode, m->top);
+
+    auto const & state = m->game->state();
 
     auto newGame = [=](GameMode mode) {
         return [=]{
@@ -134,6 +137,16 @@ void Controller::newGame(GameMode mode) {
         menu->play->clicked += newGame(m_play);
     };
 
+    state.back->clicked += [=] {
+        m->newGame = true;
+        m->mode = m_menu;
+    };
+
+    state.restart->clicked += [=] {
+        m->newGame = true;
+        m->mode = m_play;
+    };
+
 }
 
 bool Controller::onUpdate(float dt) {
@@ -149,14 +162,21 @@ bool Controller::onUpdate(float dt) {
 }
 
 void Controller::onDraw() {
+    auto const & state = m->game->state();
+
     auto & sprite_context = AutoSprite<SpriteProgram>::context();
     sprite_context->tint = {1, 1, 1, 1};
 
-    SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 8.5, 0}));
+    SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 9.1, 0}));
 
     SpriteProgram::draw(m->game->actors<Bird>       (), pmv());
     SpriteProgram::draw(m->game->actors<Character>  (), pmv());
     SpriteProgram::draw(m->game->actors<Dart>       (), pmv());
+
+    if (state.mode == m_play) {
+        state.back->draw(pmv());
+        state.restart->draw(pmv());
+    }
 }
 
 void Controller::onResize(brac::vec2 const & size) {
@@ -167,6 +187,8 @@ void Controller::onResize(brac::vec2 const & size) {
                                   float t_inner, float t_outer,
                                   vec2 maxSizeMm)*/
     adaptiveOrtho(-10, -10, 10, 10, 0, 0, 6, INFINITY);
+    auto top = inv_pmv() * vec3{0, 1, 0};
+    m->top = top.y;
 }
 
 std::unique_ptr<TouchHandler> Controller::onTouch(vec2 const & worldPos, float radius) {
