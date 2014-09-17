@@ -106,12 +106,18 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
     }
 
     CharacterImpl * character = nullptr;
+    float dist_sq = INFINITY;
     AabbQuery(&m->spaceTime, cpBBNewForCircle(to_cpVect(p), radius), l_character, CP_NO_GROUP,
               [&](cpShape *shape) {
                   if (auto c = static_cast<CharacterImpl *>(cpShapeGetUserData(shape))) {
-                      character = c;
+                      float dsq = length_sq(p - c->pos());
+                      if (dist_sq > dsq) {
+                          dist_sq = dsq;
+                          character = c;
+                      }
                   }
               });
+
     if (character) {
         struct CharacterAimAndFireHandler : TouchHandler {
             std::weak_ptr<Game> weak_self;
