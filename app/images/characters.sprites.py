@@ -1,18 +1,16 @@
 image('characters.xcf')
-grid(12, 12)
+grid(16, 16)
 scale(10)
 
-def character(X, Y):
-    return [floodfill((3 * X + x + 0.5, 3 * Y + y + 0.5), n=20)
-            for (x, y) in [(0, 0), (1, 0), (2, 0), (1, 1), (2, 2)]]
+def character(x, y):
+    x *= 4
+    y *= 4
+    return [s
+            for row in rows(((x, y), (x + 4, y + 6)), origin=('aabb', (0, 0)))
+            for s in row]
 
 sprites(
-    characters=[
-        character(0, 0),
-        character(1, 0),
-        character(2, 0),
-        character(3, 0),
-        character(0, 2),
-    ],
-    dart=floodfill((4.5, 6.5), scale=5),
+    characters=[character(x, y) for (x, y) in (0, 0), (1, 0), (2, 0), (3, 0), (0, 2)],
+    dart=floodfill((6, 9), scale=5),
+    dot=floodfill((5, 11), scale=2),
 )
