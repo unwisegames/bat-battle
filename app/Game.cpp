@@ -85,6 +85,12 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         character.setVel(v);
         for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
     });
+
+    m->onCollision([=](DartImpl &, BirdImpl &, cpArbiter * arb) {
+        if(cpArbiterIsFirstContact(arb)) {
+            m->score += 10;
+        }
+    });
 }
 
 Game::~Game() { }

@@ -6,7 +6,7 @@ scale(10)
 sprites(glyphs=font(ur'''
     01234567
     89ABCDE
-    FGHIJKL
+    FGHIJKL:
     MNOPQRS
     TUVWXYZ.
     ''',

@@ -1,5 +1,6 @@
 #include "Controller.h"
 #include "background.sprites.h"
+#include "font.sprites.h"
 #include "Menu.h"
 
 #include "brag.h"
@@ -174,6 +175,9 @@ void Controller::onDraw() {
     SpriteProgram::draw(m->game->actors<Dart>       (), pmv());
 
     if (state.mode == m_play) {
+        SpriteProgram::drawText("SCORE :  " + std::to_string(state.score), font.glyphs, 1,
+                                pmv() * mat4::translate({9, m->top-1, 0}) * mat4::scale(0.5), -0.1);
+
         state.back->draw(pmv());
         state.restart->draw(pmv());
     }
