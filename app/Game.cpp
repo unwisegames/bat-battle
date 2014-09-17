@@ -132,7 +132,7 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
                     // TODO: Return smoothly to upright posture.
                     character->aim(0);
                     self->m->emplace<DartImpl>(character->pos() + vec2::polar(1, angle + M_PI),
-                                               vec2::polar(10, angle + M_PI));
+                                               vec2::polar(14, angle + M_PI));
                 }
             }
 
