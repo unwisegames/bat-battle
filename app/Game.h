@@ -10,13 +10,13 @@
 constexpr float THREE_LINE_Y = 0;
 constexpr float SHOT_LINE_Y = 4.7;
 constexpr float LAUNCH_OFFSET = 1;
+constexpr float LAUNCH_VELOCITY = 14;
 constexpr float WORLD_GRAVITY = -10;
 
 struct Character : brac::Actor {
     enum State { neutral, happy, sad, excited };
 
     virtual bool isAiming() const = 0;
-    virtual brac::vec2 const & launchVel() const = 0;
 };
 
 struct Bird : brac::Actor {
