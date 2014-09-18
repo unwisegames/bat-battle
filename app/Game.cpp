@@ -18,7 +18,7 @@ enum Layer : cpLayers { l_all = 1<<0, l_character = 1<<1 };
 enum CollisionType : cpCollisionType { ct_universe = 1 };
 
 struct CharacterImpl : BodyShapes<Character> {
-    bool aiming_ = false;
+    vec2 launchVel_ = {0, 0};
 
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
     : BodyShapes{space, newBody(1, INFINITY, pos), characters.characters[type][0], CP_NO_GROUP, l_all | l_character}
@@ -27,16 +27,20 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 
     virtual bool isAiming() const override {
-        return aiming_;
+        return !!launchVel_;
     }
 
-    void aim(float angle) {
-        aiming_ = true;
-        setAngle(angle);
+    virtual vec2 const & launchVel() const override {
+        return launchVel_;
+    }
+
+    void aim(vec2 const & v) {
+        launchVel_ = v;
+        setAngle(brac::angle(v));
     }
 
     void dontAim() {
-        aiming_ = false;
+        launchVel_ = {0, 0};
         setAngle(0);
     }
 };
@@ -143,31 +147,27 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
         struct CharacterAimAndFireHandler : TouchHandler {
             std::weak_ptr<Game> weak_self;
             CharacterImpl * character;
-            float angle = -0.5 * M_PI;
-            vec2 first_p;
+            vec2 first_p, vel;
 
             CharacterAimAndFireHandler(Game & self, vec2 const & p, CharacterImpl * character)
             : weak_self{self.shared_from_this()}
             , character{character}
             , first_p{p}
-            {
-                character->aim(angle);
-            }
+            { }
 
             ~CharacterAimAndFireHandler() {
                 if (auto self = weak_self.lock()) {
                     // TODO: Return smoothly to upright posture.
-                    character->dontAim();
-                    self->m->emplace<DartImpl>(character->pos() + vec2::polar(LAUNCH_OFFSET, angle + M_PI),
-                                               vec2::polar(LAUNCH_VELOCITY, angle + M_PI));
+                    if (vec2 const & vel = character->launchVel()) {
+                        self->m->emplace<DartImpl>(character->pos() + LAUNCH_OFFSET * unit(vel), vel);
+                        character->dontAim();
+                    }
                 }
             }
 
             virtual void moved(vec2 const & p, bool) {
                 if (auto self = weak_self.lock()) {
-                    constexpr float gear_ratio = 0.5;
-                    angle = gear_ratio * (first_p.x - p.x) - 0.5 * M_PI;
-                    character->aim(angle);
+                    character->aim(-10 * (p - first_p));
                 }
             }
         };
