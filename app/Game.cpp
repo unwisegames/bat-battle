@@ -166,7 +166,7 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
             virtual void moved(vec2 const & p, bool) {
                 if (auto self = weak_self.lock()) {
                     constexpr float gear_ratio = 0.5;
-                    angle = gear_ratio * (first_p.x - p.x) - 0.5 * M_PI;
+                    angle = gear_ratio * (p.x - first_p.x) - 0.5 * M_PI;
                     character->aim(angle);
                 }
             }
