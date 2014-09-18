@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "bats.sprites.h"
 #include "characters.sprites.h"
+#include "reload.sprites.h"
 
 #include <bricabrac/Game/GameActorImpl.h>
 #include <bricabrac/Game/Timer.h>
@@ -61,7 +62,13 @@ struct DartImpl : BodyShapes<Dart> {
     }
 };
 
-struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> {
+struct ReloadImpl : BodyShapes<Reload> {
+    ReloadImpl(cpSpace * space, vec2 const & pos)
+    : BodyShapes{space, newStaticBody(pos), sensor(reload.reload)}
+    { }
+};
+
+struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, ReloadImpl> {
     ShapePtr worldBox{sensor(boxShape(30, 30, {0, 0}, 0), ct_universe)};
     ShapePtr walls[3], hoop[2];
     size_t n_for_n = 0;
@@ -88,6 +95,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
 
         m->emplace<CharacterImpl>(0, vec2{-4, 2});
         m->emplace<CharacterImpl>(1, vec2{3, 2});
+
+        m->emplace<ReloadImpl>(vec2{0, 2.6});
     }
 
     m->onCollision([=](CharacterImpl & character, BirdImpl & bird) {

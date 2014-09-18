@@ -191,6 +191,7 @@ void Controller::onDraw() {
 
     SpriteProgram::draw(m->game->actors<Character>  (), pmv());
     SpriteProgram::draw(m->game->actors<Dart>       (), pmv());
+    SpriteProgram::draw(m->game->actors<Reload>       (), pmv() * mat4::scale(0.8));
 
     if (state.mode == m_play) {
         SpriteProgram::drawText("SCORE :  " + std::to_string(state.score), font.glyphs, 1,
