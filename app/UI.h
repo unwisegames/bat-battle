@@ -33,7 +33,7 @@ public:
         }
     };
 
-    Button(brac::SpriteDef const s[], brac::vec2 p) : sprites_{s[0], s[1]}, pos_(p) { }
+    Button(brac::SpriteDef const s[], brac::vec2 p, float scale) : sprites_{s[0], s[1]}, pos_(p), scale_(scale) { }
 
     void draw(brac::mat4 pmv);
     bool contains(brac::vec2 v);
@@ -62,10 +62,11 @@ public:
 private:
     brac::SpriteDef sprites_[2]; // default/pressed
     brac::vec2 pos_;
+    float scale_;
 };
 
-inline std::shared_ptr<Button> makeButton(brac::SpriteDef const s[], brac::vec2 p) {
-    return std::make_shared<Button>(s, p);
+inline std::shared_ptr<Button> makeButton(brac::SpriteDef const s[], brac::vec2 p, float scale = 1) {
+    return std::make_shared<Button>(s, p, scale);
 }
 
 #endif // INCLUDED__Bounce__UI_h

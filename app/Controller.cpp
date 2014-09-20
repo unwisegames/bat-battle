@@ -3,6 +3,7 @@
 #include "font.sprites.h"
 #include "characters.sprites.h"
 #include "Menu.h"
+#include "GameOver.h"
 
 #include "brag.h"
 
@@ -23,10 +24,8 @@ struct Controller::Members {
     float top = 0;
 
     // Persistent data
-    Persistent<int> careerArcPoints{"careerArcPoints"};
-    Persistent<int> careerBuzPoints{"careerBuzPoints"};
-    Persistent<int> bestArcScore{"bestArcScore"};
-    Persistent<int> bestBuzScore{"bestBuzScore"};
+    Persistent<int> totalPoints{"totalPoints"};
+    Persistent<int> bestScore{"bestScore"};
     Persistent<int> arcGamesPlayed{"arcGamesPlayed"};
     Persistent<int> buzGamesPlayed{"buzGamesPlayed"};
 };
@@ -95,42 +94,27 @@ void Controller::newGame(GameMode mode) {
     
     m->game->ended += [=] {
         auto const & state = m->game->state();
-        auto mode = state.mode;
 
-        if (mode == m_arcade) {
-            m->arcGamesPlayed = ++*m->arcGamesPlayed;
-        } else if (mode == m_buzzer) {
-            m->buzGamesPlayed = ++*m->buzGamesPlayed;
-        }
-        
         size_t score = state.score;
         if (score > 0) {
-            switch (state.mode) {
-                case m_arcade:
-                    if (score > *m->bestArcScore) {
-                        m->bestArcScore = static_cast<int>(score);
-                    }
-                    m->careerArcPoints = *m->careerArcPoints + static_cast<int>(score);
-                    break;
-                case m_buzzer:
-                    if (score > *m->bestBuzScore) {
-                        m->bestBuzScore = static_cast<int>(score);
-                    }
-                    m->careerBuzPoints = *m->careerBuzPoints + static_cast<int>(score);
-                    break;
-                case m_menu: break;
-                case m_play: break;
+            if (score > *m->bestScore) {
+                m->bestScore = static_cast<int>(score);
             }
-            
+            m->totalPoints = *m->totalPoints + static_cast<int>(score);
+
             if (score >= 25) {
                 brag::score25(100, []{});
                 if (score >= 100) {
                 }
             }
             
-            size_t cp = *m->careerArcPoints + *m->careerBuzPoints;
-            brag::career = cp;
+            size_t tp = *m->totalPoints + *m->totalPoints;
+            brag::total = tp;
         }
+
+        auto gameOver = emplaceController<GameOver>(mode, score, *m->bestScore);
+        gameOver->restart   ->clicked += newGame(m->mode);
+        gameOver->back      ->clicked += newGame(m_menu);
     };
 
     m->game->show_menu += [=] {
@@ -145,8 +129,9 @@ void Controller::newGame(GameMode mode) {
     };
 
     state.restart->clicked += [=] {
-        m->newGame = true;
-        m->mode = m_play;
+        m->game->end();
+//        m->newGame = true;
+//        m->mode = m_play;
     };
 
 }

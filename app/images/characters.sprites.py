@@ -12,5 +12,5 @@ def character(x, y):
 sprites(
     characters=[character(x, y) for (x, y) in [(0, 0), (1, 0), (2, 0), (3, 0), (0, 2)]],
     dart=floodfill((6, 9), scale=5),
-    dot=floodfill((5, 11), scale=2),
+    dot=floodfill((5, 11), scale=4),
 )
