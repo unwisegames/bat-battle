@@ -15,7 +15,7 @@ enum Group : cpGroup { gr_bird = 1 };
 
 enum Layer : cpLayers { l_all = 1<<0, l_character = 1<<1 };
 
-enum CollisionType : cpCollisionType { ct_universe = 1 };
+enum CollisionType : cpCollisionType { ct_universe = 1, ct_ground };
 
 struct CharacterImpl : BodyShapes<Character> {
     vec2 launchVel_ = {0, 0};
@@ -51,6 +51,11 @@ struct BirdImpl : BodyShapes<Bird> {
     {
         setVel(vel);
     }
+
+    void newState(size_t & loop) override {
+        loop = size_t(state());
+    }
+
 };
 
 struct DartImpl : BodyShapes<Dart> {
@@ -74,6 +79,7 @@ struct ReloadImpl : BodyShapes<Reload> {
 
 struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, ReloadImpl> {
     ShapePtr worldBox{sensor(boxShape(30, 30, {0, 0}, 0), ct_universe)};
+    ShapePtr ground{sensor(segmentShape({-10, 2}, {10, 2}), ct_ground)};
     ShapePtr walls[3], hoop[2];
     size_t n_for_n = 0;
     bool touched_sides = false;
@@ -97,25 +103,52 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             m->emplace<BirdImpl>(0, vec2{-4, 10}, vec2{1, -1});
         }};
 
-        m->emplace<CharacterImpl>(0, vec2{-4, 2});
-        m->emplace<CharacterImpl>(1, vec2{3, 2});
+        m->emplace<CharacterImpl>(0, vec2{-4, 2.3});
+        m->emplace<CharacterImpl>(1, vec2{3, 2.7});
 
-        m->emplace<ReloadImpl>(vec2{0, 2.6});
+        m->emplace<ReloadImpl>(vec2{0, 3.5});
     }
 
     m->onCollision([=](CharacterImpl & character, BirdImpl & bird) {
-        vec2 v = bird.vel();
-        v.y = -v.y;
-        bird.setVel(v);
-        character.setVel(v);
-        for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
+        if (bird.state() == Bird::State::dying) {
+            return false;
+        } else {
+            vec2 v = bird.vel();
+            v.y = -v.y;
+            bird.setVel(v);
+            character.setVel(v);
+            for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
+        }
+        return true;
     });
 
-    m->onCollision([=](DartImpl &, BirdImpl &, cpArbiter * arb) {
-        if(cpArbiterIsFirstContact(arb)) {
-            m->score += 10;
+    m->onCollision([=](DartImpl &, BirdImpl & b, cpArbiter * arb) {
+        if (b.state() == Bird::State::dying) {
+            return false;
+        } else {
+            if(cpArbiterIsFirstContact(arb)) {
+                m->score += 10;
+            }
+        }
+        return true;
+    });
+
+    m->onPostSolve([=](DartImpl & dart, BirdImpl & bird, cpArbiter * arb) {
+        bird << Bird::State::dying;
+        bird.setAngle(0);
+        bird.setVel(vec2{0, -3});
+        cpBodySetAngVel(bird.body(), 0);
+        m->removeWhenSpaceUnlocked(dart);
+    });
+
+    m->onCollision([=](BirdImpl & bird, NoActor<ct_ground> &, cpArbiter *) {
+        if (bird.state() == Bird::State::dying) {
+            bird << Bird::State::puff;
+            bird.setVel({0, 0});
+            delay(0.85, [&]{ m->removeWhenSpaceUnlocked(bird); }).cancel(destroyed);
         }
     });
+
 }
 
 Game::~Game() { }

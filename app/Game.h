@@ -20,7 +20,7 @@ struct Character : brac::Actor {
 };
 
 struct Bird : brac::Actor {
-    enum State { hover, dive, ascend };
+    enum State { hover, dive, ascend, dying, puff };
 
     Character * captive() const;
 };
