@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "bats.sprites.h"
 #include "characters.sprites.h"
+#include "character.sprites.h"
 #include "reload.sprites.h"
 
 #include <bricabrac/Game/GameActorImpl.h>
@@ -21,7 +22,7 @@ struct CharacterImpl : BodyShapes<Character> {
     vec2 launchVel_ = {0, 0};
 
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
-    : BodyShapes{space, newBody(1, INFINITY, pos), characters.characters[type][0], CP_NO_GROUP, l_all | l_character}
+    : BodyShapes{space, newBody(1, INFINITY, pos), character.character, CP_NO_GROUP, l_all | l_character}
     {
         for (auto & shape : shapes()) cpShapeSetElasticity(&*shape, 1);
     }
@@ -42,6 +43,12 @@ struct CharacterImpl : BodyShapes<Character> {
     void dontAim() {
         launchVel_ = {0, 0};
         setAngle(0);
+        reload();
+    }
+
+    void reload() {
+        *this << Character::State::reloading;
+        delay(1.8, [=]{ *this << Character::State::ready; }).cancel(destroyed);
     }
 };
 
@@ -105,18 +112,20 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
 
         m->emplace<CharacterImpl>(0, vec2{-4, 2.3});
         m->emplace<CharacterImpl>(1, vec2{3, 2.7});
+        for (auto & c : m->actors<CharacterImpl>()) c.reload();
 
         m->emplace<ReloadImpl>(vec2{0, 3.5});
     }
 
     m->onCollision([=](CharacterImpl & character, BirdImpl & bird) {
-        if (bird.state() == Bird::State::dying) {
+        if (bird.state() == Bird::State::dying || bird.state() == Bird::State::puff) {
             return false;
         } else {
             vec2 v = bird.vel();
             v.y = -v.y;
             bird.setVel(v);
             character.setVel(v);
+            character << Character::State::crying;
             for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
         }
         return true;
@@ -149,6 +158,13 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         }
     });
 
+    m->onSeparate([=](CharacterImpl & character, NoActor<ct_universe> &) {
+        size_t size = m->actors<CharacterImpl>().size();
+        m->removeWhenSpaceUnlocked(character);
+        if (size == 1) {
+            end();
+        }
+    });
 }
 
 Game::~Game() { }
@@ -176,7 +192,7 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
                   }
               });
 
-    if (character) {
+    if (character && character->state() == Character::State::ready) {
         struct CharacterAimAndFireHandler : TouchHandler {
             std::weak_ptr<Game> weak_self;
             CharacterImpl * character;
@@ -186,7 +202,9 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
             : weak_self{self.shared_from_this()}
             , character{character}
             , first_p{p}
-            { }
+            {
+                *character << Character::State::aim;
+            }
 
             ~CharacterAimAndFireHandler() {
                 if (auto self = weak_self.lock()) {

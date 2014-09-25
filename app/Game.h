@@ -13,7 +13,24 @@ constexpr float LAUNCH_OFFSET = 1;
 constexpr float WORLD_GRAVITY = -10;
 
 struct Character : brac::Actor {
-    enum State { neutral, happy, sad, excited };
+    enum State {
+        biggrin,
+        confused,
+        dead,
+        determined,
+        exclaim,
+        hurt,
+        shrug,
+        sad,
+        smile,
+        smug,
+        yell,
+        mag,
+        aim,
+        ready,
+        crying,
+        reloading
+    };
 
     virtual bool isAiming() const = 0;
     virtual brac::vec2 const & launchVel() const = 0;
