@@ -44,8 +44,6 @@ struct Bird : brac::Actor {
 
 struct Dart : brac::Actor { };
 
-struct Reload : brac::Actor { };
-
 enum GameMode { m_menu, m_play, m_arcade, m_buzzer };
 constexpr GameMode MODE = m_menu;
 

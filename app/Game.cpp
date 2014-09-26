@@ -2,7 +2,6 @@
 #include "bats.sprites.h"
 #include "characters.sprites.h"
 #include "character.sprites.h"
-#include "reload.sprites.h"
 
 #include <bricabrac/Game/GameActorImpl.h>
 #include <bricabrac/Game/Timer.h>
@@ -46,9 +45,24 @@ struct CharacterImpl : BodyShapes<Character> {
         reload();
     }
 
+    void newFrame(bool newLoop) override {
+        if (state() == Character::State::reloading && frame() == 17) {
+            // frame() == 17 is a temporary hack - need to discuss how this works.
+            *this << Character::State::ready;
+        }
+    }
+
     void reload() {
         *this << Character::State::reloading;
-        delay(1.8, [=]{ *this << Character::State::ready; }).cancel(destroyed);
+    }
+
+    bool readyToFire() {
+        return state() == Character::State::ready;
+    }
+
+    void kidnapped() {
+        *this << Character::State::yell;
+        delay(1, [=]{ *this << Character::State::crying; }).cancel(destroyed);
     }
 };
 
@@ -61,6 +75,14 @@ struct BirdImpl : BodyShapes<Bird> {
 
     void newState(size_t & loop) override {
         loop = size_t(state());
+    }
+
+    bool canGrabCharacter() {
+        return !(state() == Bird::State::dying || state() == Bird::State::puff);
+    }
+
+    bool canBeShot() {
+        return !(state() == Bird::State::dying || state() == Bird::State::puff);
     }
 
 };
@@ -78,13 +100,7 @@ struct DartImpl : BodyShapes<Dart> {
     }
 };
 
-struct ReloadImpl : BodyShapes<Reload> {
-    ReloadImpl(cpSpace * space, vec2 const & pos)
-    : BodyShapes{space, newStaticBody(pos), sensor(reload.reload)}
-    { }
-};
-
-struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, ReloadImpl> {
+struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> {
     ShapePtr worldBox{sensor(boxShape(30, 30, {0, 0}, 0), ct_universe)};
     ShapePtr ground{sensor(segmentShape({-10, 2}, {10, 2}), ct_ground)};
     ShapePtr walls[3], hoop[2];
@@ -112,32 +128,31 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
 
         m->emplace<CharacterImpl>(0, vec2{-4, 2.3});
         m->emplace<CharacterImpl>(1, vec2{3, 2.7});
+        //for (auto & c : m->actors<CharacterImpl>()) c << Character::State::aim;
         for (auto & c : m->actors<CharacterImpl>()) c.reload();
-
-        m->emplace<ReloadImpl>(vec2{0, 3.5});
     }
 
     m->onCollision([=](CharacterImpl & character, BirdImpl & bird) {
-        if (bird.state() == Bird::State::dying || bird.state() == Bird::State::puff) {
-            return false;
-        } else {
+        if (bird.canGrabCharacter()) {
             vec2 v = bird.vel();
             v.y = -v.y;
             bird.setVel(v);
             character.setVel(v);
-            character << Character::State::crying;
+            character.kidnapped();
             for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
+        } else {
+            return false;
         }
         return true;
     });
 
-    m->onCollision([=](DartImpl &, BirdImpl & b, cpArbiter * arb) {
-        if (b.state() == Bird::State::dying) {
-            return false;
-        } else {
+    m->onCollision([=](DartImpl &, BirdImpl & bird, cpArbiter * arb) {
+        if (bird.canBeShot()) {
             if(cpArbiterIsFirstContact(arb)) {
                 m->score += 10;
             }
+        } else {
+            return false;
         }
         return true;
     });
@@ -148,6 +163,11 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         bird.setVel(vec2{0, -3});
         cpBodySetAngVel(bird.body(), 0);
         m->removeWhenSpaceUnlocked(dart);
+    });
+
+    m->onPostSolve([=](DartImpl & dart, CharacterImpl & character, cpArbiter * arb) {
+        //character << Character::State::dead;
+        //m->removeWhenSpaceUnlocked(dart);
     });
 
     m->onCollision([=](BirdImpl & bird, NoActor<ct_ground> &, cpArbiter *) {
@@ -192,7 +212,7 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
                   }
               });
 
-    if (character && character->state() == Character::State::ready) {
+    if (character && character->readyToFire()) {
         struct CharacterAimAndFireHandler : TouchHandler {
             std::weak_ptr<Game> weak_self;
             CharacterImpl * character;
