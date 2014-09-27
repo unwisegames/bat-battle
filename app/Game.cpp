@@ -46,9 +46,10 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 
     void newFrame(bool newLoop) override {
-        if (state() == Character::State::reloading && frame() == 17) {
-            // frame() == 17 is a temporary hack - need to discuss how this works.
-            *this << Character::State::ready;
+        if (state() == Character::State::reloading) {
+            if (!newLoop && frame() == 0) {
+                *this << Character::State::ready;
+            }
         }
     }
 
