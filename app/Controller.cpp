@@ -161,7 +161,7 @@ void Controller::onDraw() {
     for (auto const & c : m->game->actors<Character>()) {
         if (c.isAiming()) {
             float dt = 0.01;
-            vec2 p = c.pos() - vec2::polar(LAUNCH_OFFSET, c.angle());
+            vec2 p = c.pos() - vec2::polar(LAUNCH_OFFSET, c.angle() + M_PI_2);
             vec2 v = c.launchVel();
             vec2 g_dt = vec2{0, WORLD_GRAVITY} * dt;
             for (int i = 0; p.y > 0; ++i) {

@@ -36,7 +36,7 @@ struct CharacterImpl : BodyShapes<Character> {
 
     void aim(vec2 const & v) {
         launchVel_ = v;
-        setAngle(brac::angle(v));
+        setAngle(brac::angle(v) - M_PI_2);
     }
 
     void dontAim() {
