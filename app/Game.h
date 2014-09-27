@@ -11,6 +11,8 @@ constexpr float THREE_LINE_Y = 0;
 constexpr float SHOT_LINE_Y = 4.7;
 constexpr float LAUNCH_OFFSET = 1;
 constexpr float WORLD_GRAVITY = -10;
+constexpr int   CHARACTERS = 4; // Temporary: move to GameParams struct and passed as param to newGame?
+
 
 struct Character : brac::Actor {
     enum State {
@@ -28,8 +30,9 @@ struct Character : brac::Actor {
         mag,
         aim,
         ready,
+        shooting,
         crying,
-        reloading
+        reloading,
     };
 
     virtual bool isAiming() const = 0;

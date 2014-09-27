@@ -46,9 +46,13 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 
     void newFrame(bool newLoop) override {
-        if (state() == Character::State::reloading) {
-            if (!newLoop && frame() == 0) {
+        if (!newLoop && frame() == 0) {
+            if (state() == Character::State::reloading) {
                 *this << Character::State::ready;
+            }
+            if (state() == Character::State::shooting) {
+                dontAim();
+                *this << Character::State::reloading;
             }
         }
     }
@@ -59,6 +63,10 @@ struct CharacterImpl : BodyShapes<Character> {
 
     bool readyToFire() {
         return state() == Character::State::ready;
+    }
+
+    void shoot() {
+        *this << Character::State::shooting;
     }
 
     void kidnapped() {
@@ -120,6 +128,22 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     if (mode == m_menu) {
         delay(0, [=]{ show_menu(); }).cancel(destroyed);
     } else {
+        auto createCharacters = [=]{
+            vec2 v;
+            do {
+                v = {rand<float>(-5, 5), rand<float>(2, 10)};
+            } while (-3 < v.x && v.x < 3 && v.y > 4);
+
+            float min = -10;
+            for (int i = 0; i < CHARACTERS; ++i) {
+                float max = min + (20 / CHARACTERS);
+                vec2 v = {rand<float>(min + 0.5, max - 0.5), 2.5};
+                m->emplace<CharacterImpl>(0, v);
+                min = max;
+            }
+            for (auto & c : m->actors<CharacterImpl>()) c.reload();
+        };
+
         m->back->setY(top - 0.8);
         m->restart->setY(top - 0.8);
 
@@ -127,10 +151,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             m->emplace<BirdImpl>(0, vec2{-4, 10}, vec2{1, -1});
         }};
 
-        m->emplace<CharacterImpl>(0, vec2{-4, 2.3});
-        m->emplace<CharacterImpl>(1, vec2{3, 2.7});
-        //for (auto & c : m->actors<CharacterImpl>()) c << Character::State::aim;
-        for (auto & c : m->actors<CharacterImpl>()) c.reload();
+        createCharacters();
     }
 
     m->onCollision([=](CharacterImpl & character, BirdImpl & bird) {
@@ -186,6 +207,10 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             end();
         }
     });
+
+    m->onSeparate([=](BirdImpl & bird, NoActor<ct_universe> &) {
+        m->removeWhenSpaceUnlocked(bird);
+    });
 }
 
 Game::~Game() { }
@@ -232,7 +257,7 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
                     // TODO: Return smoothly to upright posture.
                     if (vec2 const & vel = character->launchVel()) {
                         self->m->emplace<DartImpl>(character->pos() + LAUNCH_OFFSET * unit(vel), vel);
-                        character->dontAim();
+                        character->shoot();
                     }
                 }
             }

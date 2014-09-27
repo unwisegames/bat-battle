@@ -29,6 +29,10 @@ sprites(
                     #frame(5, 8.5,  0.2)
                ),
                loop(
+                    frame(9, 1.5,       0.2),   #shooting
+                    frame(9, 1.5,       0.2),
+                    ),
+               loop(
                     frame(6.7, 2.5,     0.4),   #crying
                     frame(3, 2.5,       0.4),
                     frame(4.3, 2.5,     0.4),
