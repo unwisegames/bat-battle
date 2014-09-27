@@ -49,8 +49,8 @@ struct CharacterImpl : BodyShapes<Character> {
         reload();
     }
 
-    void newFrame(bool newLoop) override {
-        if (!newLoop && frame() == 0) {
+    void newFrame(bool loopChanged) override {
+        if (!loopChanged && frame() == 0) {
             if (state() == Character::State::reloading) {
                 *this << Character::State::ready;
             }
