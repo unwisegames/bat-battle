@@ -21,6 +21,7 @@ sprites(
                loop(frame(10.5, 3.5,    1)),    #smile
                loop(frame(0.5, 4.5,     1)),    #smug
                loop(frame(2, 4.5,       1)),    #yell
+               loop(frame(2, 4.5,       1)),    #startled
                loop(frame(3, 3.5,       1)),    #mag
                loop(frame(9, 1.5,       1)),    #aim
                loop(

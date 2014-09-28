@@ -19,11 +19,15 @@ enum CollisionType : cpCollisionType { ct_universe = 1, ct_ground };
 
 struct CharacterImpl : BodyShapes<Character> {
     vec2 launchVel_ = {0, 0};
+    ShapePtr shape;
 
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
-    : BodyShapes{space, newBody(1, INFINITY, pos), character.character, CP_NO_GROUP, l_all | l_character}
+    : BodyShapes{space, newBody(1, INFINITY, pos), sensor(character.character), CP_NO_GROUP, l_all | l_character}
     {
         for (auto & shape : shapes()) cpShapeSetElasticity(&*shape, 1);
+
+        setForce({0, WORLD_GRAVITY});
+        shape = newCircleShape(0.3, {0, 0})(body());
     }
 
     virtual bool isAiming() const override {
@@ -57,6 +61,11 @@ struct CharacterImpl : BodyShapes<Character> {
         }
     }
 
+    void initState() {
+        Character::State s [] = { biggrin, smile, smug, exclaim };
+        *this << s[rand<int>(0, 3)];
+    }
+
     void reload() {
         *this << Character::State::reloading;
     }
@@ -72,6 +81,11 @@ struct CharacterImpl : BodyShapes<Character> {
     void kidnapped() {
         *this << Character::State::yell;
         delay(1, [=]{ *this << Character::State::crying; }).cancel(destroyed);
+    }
+
+    void startle() {
+        *this << Character::State::startled;
+        setVel({0, 1.5});
     }
 };
 
@@ -111,7 +125,8 @@ struct DartImpl : BodyShapes<Dart> {
 
 struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> {
     ShapePtr worldBox{sensor(boxShape(30, 30, {0, 0}, 0), ct_universe)};
-    ShapePtr ground{sensor(segmentShape({-10, 2}, {10, 2}), ct_ground)};
+//    ShapePtr ground{sensor(segmentShape({-10, 2}, {10, 2}), ct_ground)};
+    ShapePtr ground{segmentShape({-10, 2}, {10, 2})};
     ShapePtr walls[3], hoop[2];
     size_t n_for_n = 0;
     bool touched_sides = false;
@@ -128,6 +143,9 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     if (mode == m_menu) {
         delay(0, [=]{ show_menu(); }).cancel(destroyed);
     } else {
+        //m->setGravity({0, GRAVITY});
+        cpShapeSetCollisionType(&*m->ground, ct_ground);
+
         auto createCharacters = [=]{
             vec2 v;
             do {
@@ -137,11 +155,11 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             float min = -10;
             for (int i = 0; i < CHARACTERS; ++i) {
                 float max = min + (20 / CHARACTERS);
-                vec2 v = {rand<float>(min + 0.5, max - 0.5), 2.5};
+                vec2 v = {rand<float>(min + 0.5, max - 0.5), 2.3};
                 m->emplace<CharacterImpl>(0, v);
                 min = max;
             }
-            for (auto & c : m->actors<CharacterImpl>()) c.reload();
+            for (auto & c : m->actors<CharacterImpl>()) c.initState();
         };
 
         m->back->setY(top - 0.8);
@@ -152,6 +170,10 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         }};
 
         createCharacters();
+        delay(3, [=]{
+            for (auto & c : m->actors<CharacterImpl>()) c.startle();
+        }).cancel(destroyed);
+
     }
 
     m->onCollision([=](CharacterImpl & character, BirdImpl & bird) {
@@ -192,12 +214,24 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         //m->removeWhenSpaceUnlocked(dart);
     });
 
+    m->onPostSolve([=](CharacterImpl & character, NoActor<ct_ground> &, cpArbiter *) {
+        if (character.state() == Character::State::startled) {
+            character << Character::State::determined;
+            delay(rand<float>(0.1, 0.5), [&] {
+                character << Character::State::reloading;
+            }).cancel(destroyed);
+        }
+    });
+
     m->onCollision([=](BirdImpl & bird, NoActor<ct_ground> &, cpArbiter *) {
         if (bird.state() == Bird::State::dying) {
             bird << Bird::State::puff;
             bird.setVel({0, 0});
             delay(0.85, [&]{ m->removeWhenSpaceUnlocked(bird); }).cancel(destroyed);
+        } else {
+            return false;
         }
+        return true;
     });
 
     m->onSeparate([=](CharacterImpl & character, NoActor<ct_universe> &) {
