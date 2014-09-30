@@ -7,7 +7,12 @@ def bat(*points):
     return [
         loop(*frames),
             # this was a disgraceful way of getting this going - will clean it up!
-        loop(*frames),
+        loop(
+             (floodfill((1.23, 0.65)), 0.15),
+             (floodfill((3.9, 0.65)), 0.15),
+             (floodfill((6.05, 0.42)), 0.15),
+             (floodfill((3.9, 0.65)), 0.15),
+        ),
         loop(*frames),
         loop(
              (floodfill((10.8, 0.9)), 0.15),

@@ -20,18 +20,18 @@ enum CollisionType : cpCollisionType { ct_universe = 1, ct_ground };
 struct CharacterImpl : BodyShapes<Character> {
     vec2 launchVel_ = {0, 0};
     ShapePtr shape;
+    bool isCaptive = false;
 
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
     : BodyShapes{space, newBody(1, INFINITY, pos), sensor(character.character), CP_NO_GROUP, l_all | l_character}
     {
         for (auto & shape : shapes()) cpShapeSetElasticity(&*shape, 1);
 
-        setForce({0, WORLD_GRAVITY});
         shape = newCircleShape(0.3, {0, 0})(body());
     }
 
     virtual bool isAiming() const override {
-        return !!launchVel_;
+        return !!launchVel_ && state() == Character::State::aim;;
     }
 
     virtual vec2 const & launchVel() const override {
@@ -67,6 +67,7 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 
     void reload() {
+        setVel({0, 0});
         *this << Character::State::reloading;
     }
 
@@ -78,9 +79,22 @@ struct CharacterImpl : BodyShapes<Character> {
         *this << Character::State::shooting;
     }
 
+    bool canBeKidnapped() {
+        return !isCaptive && !(state() == Character::State::rescued);
+    }
+
     void kidnapped() {
+        if (isAiming()) {
+            dontAim();
+        }
+        isCaptive = true;
         *this << Character::State::yell;
         delay(1, [=]{ *this << Character::State::crying; }).cancel(destroyed);
+    }
+
+    void rescued() {
+        isCaptive = false;
+        *this << Character::State::rescued;
     }
 
     void startle() {
@@ -90,49 +104,106 @@ struct CharacterImpl : BodyShapes<Character> {
 };
 
 struct BirdImpl : BodyShapes<Bird> {
-    BirdImpl(cpSpace * space, int type, vec2 const & pos, vec2 const & vel)
+    bool hasCaptive = false;
+    vec2 escapeVel;
+
+    BirdImpl(cpSpace * space, int type, vec2 const & pos, vec2 const & vel, vec2 const & tar)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_bird, l_all}
     {
-        setVel(vel);
+        setForce({0, -WORLD_GRAVITY});
+        setVel(to_vec2(cpvnormalize(to_cpVect(tar - pos))));
     }
 
     void newState(size_t & loop) override {
         loop = size_t(state());
     }
 
-    bool canGrabCharacter() {
+    virtual void doUpdate(float) override {
+        if (isFlying()) {
+            cpVect v = cpvnormalize(to_cpVect(vel()));
+            if (v.x > -0.5 && v.x < 0.5) {
+                *this << Bird::State::front;
+            } else {
+                *this << Bird::State::side;
+            }
+            if (hasCaptive) {
+                // maintain velocity
+                setVel(escapeVel);
+                setAngle(0);
+            }
+        }
+    }
+
+    virtual bool isFlying() const override {
         return !(state() == Bird::State::dying || state() == Bird::State::puff);
+    }
+
+    bool canGrabCharacter() {
+        return isFlying() && !hasCaptive;
     }
 
     bool canBeShot() {
-        return !(state() == Bird::State::dying || state() == Bird::State::puff);
+        return isFlying();
     }
 
+    ConstraintPtr * grabCharacter(cpBody & b) {
+//        setForce({0, -WORLD_GRAVITY*2});
+        static ConstraintPtr joints[2];
+
+        joints[0] = newPinJoint(body(), &b, {-0.2, 0}, {0, 0});
+        joints[1] = newPinJoint(body(), &b, {0.2, 0}, {0, 0});
+        cpPinJointSetDist(&*joints[0], 0.6);
+        cpPinJointSetDist(&*joints[1], 0.6);
+
+        return joints;
+    }
+
+    void dropCharacter() {
+//        setForce({0, -WORLD_GRAVITY});
+    }
 };
 
 struct DartImpl : BodyShapes<Dart> {
+    bool active;
+    ConstraintPtr p;
+
     DartImpl(cpSpace * space, vec2 const & pos, vec2 const & vel)
     : BodyShapes{space, newBody(1, 1, pos), characters.dart, CP_NO_GROUP, l_all}
     {
         setVel(vel);
-        setForce({0, WORLD_GRAVITY});
+        active = true;
     }
 
     virtual void doUpdate(float) override {
-        setAngle(::brac::angle(vel()));
+        if (active) {
+            setAngle(::brac::angle(vel()));
+        }
+    }
+
+    void attach(cpBody & b) { }
+};
+
+struct CharacterJointBird {
+    CharacterImpl * c;
+    ConstraintPtr p_[2];
+    BirdImpl * b;
+
+    CharacterJointBird(CharacterImpl & c, ConstraintPtr p[2], BirdImpl & b) : c(&c), b(&b) {
+        p_[0] = std::move(p[0]);
+        p_[1] = std::move(p[1]);
     }
 };
 
 struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> {
-    ShapePtr worldBox{sensor(boxShape(30, 30, {0, 0}, 0), ct_universe)};
-//    ShapePtr ground{sensor(segmentShape({-10, 2}, {10, 2}), ct_ground)};
+    ShapePtr worldBox{sensor(boxShape(20, 30, {0, 0}, 0), ct_universe)};
     ShapePtr ground{segmentShape({-10, 2}, {10, 2})};
     ShapePtr walls[3], hoop[2];
     size_t n_for_n = 0;
     bool touched_sides = false;
     int bounced_walls = 0;
     size_t score_modifier = 0;
-    Ticker tick;
+    std::unique_ptr<ExpTicker> tick;
+    std::vector<CharacterJointBird> cjb;
 
     Members(SpaceTime & st) : Impl{st} { }
 };
@@ -143,15 +214,11 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     if (mode == m_menu) {
         delay(0, [=]{ show_menu(); }).cancel(destroyed);
     } else {
-        //m->setGravity({0, GRAVITY});
+        m->setGravity({0, WORLD_GRAVITY});
+
         cpShapeSetCollisionType(&*m->ground, ct_ground);
 
         auto createCharacters = [=]{
-            vec2 v;
-            do {
-                v = {rand<float>(-5, 5), rand<float>(2, 10)};
-            } while (-3 < v.x && v.x < 3 && v.y > 4);
-
             float min = -10;
             for (int i = 0; i < CHARACTERS; ++i) {
                 float max = min + (20 / CHARACTERS);
@@ -162,27 +229,43 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             for (auto & c : m->actors<CharacterImpl>()) c.initState();
         };
 
+        auto createBird = [=]{
+            auto pos = vec2{rand<float>(-10, 10), rand<float>(top, top - 2)};
+            vec2 target{0, 0};
+
+            auto t = rand<int>(0, m->actors<CharacterImpl>().size() - 1);
+            int i = 0;
+            for (auto & c : m->actors<CharacterImpl>()) {
+                if (i == t) {
+                    target = c.pos();
+                }
+                ++i;
+            }
+            m->emplace<BirdImpl>(0, pos, vec2{1, -1}, target);
+        };
+
         m->back->setY(top - 0.8);
         m->restart->setY(top - 0.8);
-
-        m->tick = {3, [=]{
-            m->emplace<BirdImpl>(0, vec2{-4, 10}, vec2{1, -1});
-        }};
 
         createCharacters();
         delay(3, [=]{
             for (auto & c : m->actors<CharacterImpl>()) c.startle();
         }).cancel(destroyed);
 
+        m->tick.reset(new ExpTicker{BIRDFREQUENCY, [=]{
+            createBird();
+        }});
     }
 
-    m->onCollision([=](CharacterImpl & character, BirdImpl & bird) {
-        if (bird.canGrabCharacter()) {
+    m->onCollision([=](CharacterImpl & character, BirdImpl & bird, cpArbiter * arb) {
+        if (bird.canGrabCharacter() && character.canBeKidnapped()) {
+            m->cjb.emplace_back(CharacterJointBird{character, bird.grabCharacter(*character.body()), bird});
+
+            character.kidnapped();
+            bird.hasCaptive = true;
             vec2 v = bird.vel();
             v.y = -v.y;
-            bird.setVel(v);
-            character.setVel(v);
-            character.kidnapped();
+            bird.escapeVel = to_vec2(cpvnormalize(to_cpVect((v))));
             for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
         } else {
             return false;
@@ -203,23 +286,53 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
 
     m->onPostSolve([=](DartImpl & dart, BirdImpl & bird, cpArbiter * arb) {
         bird << Bird::State::dying;
+        if (bird.hasCaptive) {
+            std::vector<CharacterJointBird>::const_iterator it;
+            for(it = m->cjb.begin(); it != m->cjb.end(); ++it)
+            {
+                if ((it)->b == &bird) {
+                    (it)->b->dropCharacter();
+                    (it)->c->rescued();
+                    m->cjb.erase(it);
+                    break;
+                }
+            }
+        }
         bird.setAngle(0);
         bird.setVel(vec2{0, -3});
         cpBodySetAngVel(bird.body(), 0);
+        dart.setVel({0, 0});
         m->removeWhenSpaceUnlocked(dart);
     });
 
-    m->onPostSolve([=](DartImpl & dart, CharacterImpl & character, cpArbiter * arb) {
-        //character << Character::State::dead;
-        //m->removeWhenSpaceUnlocked(dart);
+    m->onCollision([=](DartImpl & dart, NoActor<ct_ground> &, cpArbiter *) {
+        dart.active = false;
+        float angle = brac::angle(dart.vel());
+        m->whenSpaceUnlocked([&] {
+            cpSpaceRemoveBody(dart.space(), dart.body());
+            cpSpaceConvertBodyToStatic(dart.space(), dart.body());
+            dart.setAngle(angle);
+        }, &dart);
+    });
+
+    m->onCollision([=](DartImpl & dart, CharacterImpl & character, cpArbiter * arb) {
+        character << Character::State::dead;
+        m->removeWhenSpaceUnlocked(dart);
+        m->whenSpaceUnlocked([&] {
+            cpSpaceRemoveBody(character.space(), character.body());
+            cpSpaceConvertBodyToStatic(character.space(), character.body());
+        }, &dart);
+        return false;
     });
 
     m->onPostSolve([=](CharacterImpl & character, NoActor<ct_ground> &, cpArbiter *) {
         if (character.state() == Character::State::startled) {
             character << Character::State::determined;
-            delay(rand<float>(0.1, 0.5), [&] {
+            delay(rand<float>(0.1, 0.8), [&] {
                 character << Character::State::reloading;
             }).cancel(destroyed);
+        } else if (character.state() == Character::State::rescued) {
+            character.reload();
         }
     });
 
@@ -235,16 +348,22 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     });
 
     m->onSeparate([=](CharacterImpl & character, NoActor<ct_universe> &) {
+        // This is broken
         size_t size = m->actors<CharacterImpl>().size();
         m->removeWhenSpaceUnlocked(character);
         if (size == 1) {
-            end();
+            gameOver();
         }
     });
 
     m->onSeparate([=](BirdImpl & bird, NoActor<ct_universe> &) {
-        m->removeWhenSpaceUnlocked(bird);
+        //m->removeWhenSpaceUnlocked(bird);
     });
+}
+
+void Game::gameOver() {
+    m->tick.reset();
+    end();
 }
 
 Game::~Game() { }
@@ -289,9 +408,11 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
             ~CharacterAimAndFireHandler() {
                 if (auto self = weak_self.lock()) {
                     // TODO: Return smoothly to upright posture.
-                    if (vec2 const & vel = character->launchVel()) {
-                        self->m->emplace<DartImpl>(character->pos() + LAUNCH_OFFSET * unit(vel), vel);
-                        character->shoot();
+                    if (character->isAiming()) {
+                        if (vec2 const & vel = character->launchVel()) {
+                            self->m->emplace<DartImpl>(character->pos() + LAUNCH_OFFSET * unit(vel), vel);
+                            character->shoot();
+                        }
                     }
                 }
             }

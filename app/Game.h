@@ -11,10 +11,13 @@ constexpr float GRAVITY = -30;
 constexpr float LAUNCH_OFFSET = 1;
 constexpr float WORLD_GRAVITY = -10;
 constexpr int   CHARACTERS = 4; // Temporary: move to GameParams struct and passed as param to newGame?
+constexpr int   BIRDS = 10;
+constexpr float BIRDFREQUENCY = 3.5;
 
 struct Character : brac::Actor {
     enum State {
         biggrin,
+        rescued,
         confused,
         dead,
         determined,
@@ -39,9 +42,12 @@ struct Character : brac::Actor {
 };
 
 struct Bird : brac::Actor {
-    enum State { hover, dive, ascend, dying, puff };
+    enum State { side, front, rear, dying, puff };
 
+    Character * target() const;
     Character * captive() const;
+
+    virtual bool isFlying() const = 0;
 };
 
 struct Dart : brac::Actor { };
@@ -85,6 +91,7 @@ public:
     State const & state() const;
     
     virtual std::unique_ptr<brac::TouchHandler> fingerTouch(brac::vec2 const & p, float radius) override;
+    void gameOver();
 
 private:
     struct Members;

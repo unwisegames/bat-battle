@@ -156,7 +156,13 @@ void Controller::onDraw() {
 
     SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 9.1, 0}));
 
-    SpriteProgram::draw(m->game->actors<Bird>       (), pmv());
+    for (auto const & b : m->game->actors<Bird>()) {
+        if (b.isFlying()) {
+            SpriteProgram::drawActor(b, pmv(), b.vel().x < 0 ? mat4::scale(vec3{-1, 1, 1}) : mat4::identity());
+        } else {
+            SpriteProgram::drawActor(b, pmv());
+        }
+    }
 
     for (auto const & c : m->game->actors<Character>()) {
         if (c.isAiming()) {
