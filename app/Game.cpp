@@ -233,7 +233,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             auto pos = vec2{rand<float>(-10, 10), rand<float>(top, top - 2)};
             vec2 target{0, 0};
 
-            auto t = rand<int>(0, m->actors<CharacterImpl>().size() - 1);
+            auto t = rand<int>(0, int(m->actors<CharacterImpl>().size()) - 1);
             int i = 0;
             for (auto & c : m->actors<CharacterImpl>()) {
                 if (i == t) {
