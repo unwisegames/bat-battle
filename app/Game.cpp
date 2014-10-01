@@ -110,6 +110,7 @@ struct BirdImpl : BodyShapes<Bird> {
     BirdImpl(cpSpace * space, int type, vec2 const & pos, vec2 const & vel, vec2 const & tar)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_bird, l_all}
     {
+        std::cerr << "NEW BIRD: POS-" << pos.x << "," << pos.y << " TARGET-" << tar.x << "," << tar.y << "\n";
         setForce({0, -WORLD_GRAVITY});
         setVel(to_vec2(cpvnormalize(to_cpVect(tar - pos))));
     }
@@ -149,6 +150,8 @@ struct BirdImpl : BodyShapes<Bird> {
     ConstraintPtr * grabCharacter(cpBody & b) {
 //        setForce({0, -WORLD_GRAVITY*2});
         static ConstraintPtr joints[2];
+
+        std::cerr << "CREATING JOINTS" << "\n";
 
         joints[0] = newPinJoint(body(), &b, {-0.2, 0}, {0, 0});
         joints[1] = newPinJoint(body(), &b, {0.2, 0}, {0, 0});
@@ -233,8 +236,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             auto pos = vec2{rand<float>(-10, 10), rand<float>(top, top - 2)};
             vec2 target{0, 0};
 
-            auto t = rand<int>(0, int(m->actors<CharacterImpl>().size()) - 1);
-            int i = 0;
+            auto t = rand<int>(1, int(m->actors<CharacterImpl>().size()));
+            int i = 1;
             for (auto & c : m->actors<CharacterImpl>()) {
                 if (i == t) {
                     target = c.pos();
@@ -258,12 +261,13 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     }
 
     m->onCollision([=](CharacterImpl & character, BirdImpl & bird, cpArbiter * arb) {
-        if (bird.canGrabCharacter() && character.canBeKidnapped()) {
+        if (bird.canGrabCharacter() && character.canBeKidnapped() && cpArbiterIsFirstContact(arb)) {
+            vec2 v = bird.vel();
+
             m->cjb.emplace_back(CharacterJointBird{character, bird.grabCharacter(*character.body()), bird});
 
             character.kidnapped();
             bird.hasCaptive = true;
-            vec2 v = bird.vel();
             v.y = -v.y;
             bird.escapeVel = to_vec2(cpvnormalize(to_cpVect((v))));
             for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
@@ -350,14 +354,14 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     m->onSeparate([=](CharacterImpl & character, NoActor<ct_universe> &) {
         // This is broken
         size_t size = m->actors<CharacterImpl>().size();
-        m->removeWhenSpaceUnlocked(character);
+        //m->removeWhenSpaceUnlocked(character);
         if (size == 1) {
             gameOver();
         }
     });
 
     m->onSeparate([=](BirdImpl & bird, NoActor<ct_universe> &) {
-        //m->removeWhenSpaceUnlocked(bird);
+       // m->removeWhenSpaceUnlocked(bird);
     });
 }
 
