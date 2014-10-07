@@ -8,6 +8,10 @@
 #include <bricabrac/Math/MathUtil.h>
 #include <bricabrac/Math/Random.h>
 #include <bricabrac/Logging/Logging.h>
+#include <bricabrac/Data/cpplinq.hpp>
+#include <bricabrac/Data/Relation.h>
+
+#include <unordered_set>
 
 using namespace brac;
 
@@ -110,7 +114,7 @@ struct BirdImpl : BodyShapes<Bird> {
     BirdImpl(cpSpace * space, int type, vec2 const & pos, vec2 const & vel, vec2 const & tar)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_bird, l_all}
     {
-        std::cerr << "NEW BIRD: POS-" << pos.x << "," << pos.y << " TARGET-" << tar.x << "," << tar.y << "\n";
+        (std::cerr << "NEW BIRD: POS-" << pos.x << "," << pos.y << " TARGET-" << tar.x << "," << tar.y << "\n");
         setForce({0, -WORLD_GRAVITY});
         setVel(to_vec2(cpvnormalize(to_cpVect(tar - pos))));
     }
@@ -147,9 +151,9 @@ struct BirdImpl : BodyShapes<Bird> {
         return isFlying();
     }
 
-    ConstraintPtr * grabCharacter(cpBody & b) {
+    array<ConstraintPtr, 2> grabCharacter(cpBody & b) {
 //        setForce({0, -WORLD_GRAVITY*2});
-        static ConstraintPtr joints[2];
+        array<ConstraintPtr, 2> joints;
 
         std::cerr << "CREATING JOINTS" << "\n";
 
@@ -188,13 +192,11 @@ struct DartImpl : BodyShapes<Dart> {
 
 struct CharacterJointBird {
     CharacterImpl * c;
-    ConstraintPtr p_[2];
+    array<ConstraintPtr, 2> p;
     BirdImpl * b;
 
-    CharacterJointBird(CharacterImpl & c, ConstraintPtr p[2], BirdImpl & b) : c(&c), b(&b) {
-        p_[0] = std::move(p[0]);
-        p_[1] = std::move(p[1]);
-    }
+    bool operator==(CharacterJointBird const & cjb) const { return c == cjb.c && p == cjb.p && b == cjb.b; }
+    size_t hash() const { return hash_of(c, p[0], p[1], b); }
 };
 
 struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> {
@@ -206,12 +208,14 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> 
     int bounced_walls = 0;
     size_t score_modifier = 0;
     std::unique_ptr<ExpTicker> tick;
-    std::vector<CharacterJointBird> cjb;
+    Relation<CharacterJointBird> cjb;
 
     Members(SpaceTime & st) : Impl{st} { }
 };
 
 Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Members{st}} {
+    using namespace cpplinq;
+
     m->mode = mode;
 
     if (mode == m_menu) {
@@ -225,7 +229,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             float min = -10;
             for (int i = 0; i < CHARACTERS; ++i) {
                 float max = min + (20 / CHARACTERS);
-                vec2 v = {rand<float>(min + 0.5, max - 0.5), 2.3};
+                vec2 v{rand<float>(min + 0.5, max - 0.5), 2.3};
                 m->emplace<CharacterImpl>(0, v);
                 min = max;
             }
@@ -264,7 +268,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         if (bird.canGrabCharacter() && character.canBeKidnapped() && cpArbiterIsFirstContact(arb)) {
             vec2 v = bird.vel();
 
-            m->cjb.emplace_back(CharacterJointBird{character, bird.grabCharacter(*character.body()), bird});
+            m->cjb.insert(CharacterJointBird{&character, bird.grabCharacter(*character.body()), &bird});
 
             character.kidnapped();
             bird.hasCaptive = true;
@@ -290,17 +294,12 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
 
     m->onPostSolve([=](DartImpl & dart, BirdImpl & bird, cpArbiter * arb) {
         bird << Bird::State::dying;
-        if (bird.hasCaptive) {
-            std::vector<CharacterJointBird>::const_iterator it;
-            for(it = m->cjb.begin(); it != m->cjb.end(); ++it)
-            {
-                if ((it)->b == &bird) {
-                    (it)->b->dropCharacter();
-                    (it)->c->rescued();
-                    m->cjb.erase(it);
-                    break;
-                }
-            }
+        auto matching = from(m->cjb) >> ref() >> where([&](CharacterJointBird const & cjb) { return cjb.b == &bird; });
+        if (matching >> any()) {
+            auto & cjb = (matching >> first()).get();
+            cjb.b->dropCharacter();
+            cjb.c->rescued();
+            m->cjb.erase(cjb);
         }
         bird.setAngle(0);
         bird.setVel(vec2{0, -3});
