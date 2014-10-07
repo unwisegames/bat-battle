@@ -153,16 +153,9 @@ struct BirdImpl : BodyShapes<Bird> {
 
     array<ConstraintPtr, 2> grabCharacter(cpBody & b) {
 //        setForce({0, -WORLD_GRAVITY*2});
-        array<ConstraintPtr, 2> joints;
-
         std::cerr << "CREATING JOINTS" << "\n";
-
-        joints[0] = newPinJoint(body(), &b, {-0.2, 0}, {0, 0});
-        joints[1] = newPinJoint(body(), &b, {0.2, 0}, {0, 0});
-        cpPinJointSetDist(&*joints[0], 0.6);
-        cpPinJointSetDist(&*joints[1], 0.6);
-
-        return joints;
+        auto joint = [&](vec2 const & pos) { return newPinJoint(body(), &b, pos, {0, 0}); };
+        return {joint({-0.2, 0}), joint({0.2, 0})};
     }
 
     void dropCharacter() {
