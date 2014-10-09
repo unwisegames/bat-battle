@@ -111,12 +111,15 @@ struct BirdImpl : BodyShapes<Bird> {
     bool hasCaptive = false;
     vec2 escapeVel;
 
-    BirdImpl(cpSpace * space, int type, vec2 const & pos, vec2 const & vel, vec2 const & tar)
+    BirdImpl(cpSpace * space, int type, vec2 const & pos, vec2 const & tar)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_bird, l_all}
     {
-        (std::cerr << "NEW BIRD: POS-" << pos.x << "," << pos.y << " TARGET-" << tar.x << "," << tar.y << "\n");
         setForce({0, -WORLD_GRAVITY});
         setVel(to_vec2(cpvnormalize(to_cpVect(tar - pos))));
+    }
+
+    void newTarget(vec2 targetPos) {
+        setVel(to_vec2(cpvnormalize(to_cpVect(targetPos - pos()))));
     }
 
     void newState(size_t & loop) override {
@@ -152,9 +155,12 @@ struct BirdImpl : BodyShapes<Bird> {
     }
 
     array<ConstraintPtr, 2> grabCharacter(cpBody & b) {
-//        setForce({0, -WORLD_GRAVITY*2});
-        std::cerr << "CREATING JOINTS" << "\n";
-        auto joint = [&](vec2 const & pos) { return newPinJoint(body(), &b, pos, {0, 0}); };
+        auto joint = [&](vec2 const & pos) {
+            auto j = newPinJoint(body(), &b, pos, {0, 0});
+            cpPinJointSetDist(&*j, 0.6);
+            return j;
+        };
+        hasCaptive = true;
         return {joint({-0.2, 0}), joint({0.2, 0})};
     }
 
@@ -192,6 +198,14 @@ struct CharacterJointBird {
     size_t hash() const { return hash_of(c, p[0], p[1], b); }
 };
 
+struct BirdTargetCharacter {
+    BirdImpl * b;
+    CharacterImpl * c;
+
+    bool operator==(BirdTargetCharacter const & targets) const { return b == targets.b && c == targets.c; }
+    size_t hash() const { return hash_of(b, c); }
+};
+
 struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> {
     ShapePtr worldBox{sensor(boxShape(20, 30, {0, 0}, 0), ct_universe)};
     ShapePtr ground{segmentShape({-10, 2}, {10, 2})};
@@ -202,6 +216,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> 
     size_t score_modifier = 0;
     std::unique_ptr<ExpTicker> tick;
     Relation<CharacterJointBird> cjb;
+    Relation<BirdTargetCharacter> targets;
 
     Members(SpaceTime & st) : Impl{st} { }
 };
@@ -210,6 +225,21 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     using namespace cpplinq;
 
     m->mode = mode;
+
+    auto newTarget = [=](BirdImpl & b) {
+        // This is what I was trying to do initially...
+        auto available = from(m->actors<CharacterImpl>()) >> ref() >> where([&](CharacterImpl const & c) { return c.isCaptive == false; });
+
+        // Which works, but fails here
+        if (available >> any()) {
+            auto & c = (available >> first()).get();
+            b.newTarget(c.pos());
+        }
+
+        // But this also fails with the same error.
+        auto c = from(m->actors<CharacterImpl>()) >> count();
+        std::cerr << c;
+    };
 
     if (mode == m_menu) {
         delay(0, [=]{ show_menu(); }).cancel(destroyed);
@@ -238,10 +268,10 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             for (auto & c : m->actors<CharacterImpl>()) {
                 if (i == t) {
                     target = c.pos();
+                    m->targets.insert(BirdTargetCharacter{&m->emplace<BirdImpl>(0, pos, target), &c});
                 }
                 ++i;
             }
-            m->emplace<BirdImpl>(0, pos, vec2{1, -1}, target);
         };
 
         m->back->setY(top - 0.8);
@@ -259,15 +289,24 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
 
     m->onCollision([=](CharacterImpl & character, BirdImpl & bird, cpArbiter * arb) {
         if (bird.canGrabCharacter() && character.canBeKidnapped() && cpArbiterIsFirstContact(arb)) {
-            vec2 v = bird.vel();
+            if (!(from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.b == &bird; }))) {
+                vec2 v = bird.vel();
 
-            m->cjb.insert(CharacterJointBird{&character, bird.grabCharacter(*character.body()), &bird});
+                m->cjb.insert(CharacterJointBird{&character, bird.grabCharacter(*character.body()), &bird});
 
-            character.kidnapped();
-            bird.hasCaptive = true;
-            v.y = -v.y;
-            bird.escapeVel = to_vec2(cpvnormalize(to_cpVect((v))));
-            for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
+                character.kidnapped();
+                v.y = -v.y;
+                bird.escapeVel = to_vec2(cpvnormalize(to_cpVect((v))));
+                for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
+
+                // send birds after new target
+                from(m->targets) >> for_each([&](BirdTargetCharacter const & targets) {
+                    if (targets.c == &character && targets.b != &bird) {
+                        newTarget(bird);
+                    }
+                });
+
+            }
         } else {
             return false;
         }
@@ -286,19 +325,21 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     });
 
     m->onPostSolve([=](DartImpl & dart, BirdImpl & bird, cpArbiter * arb) {
-        bird << Bird::State::dying;
-        auto matching = from(m->cjb) >> ref() >> where([&](CharacterJointBird const & cjb) { return cjb.b == &bird; });
-        if (matching >> any()) {
-            auto & cjb = (matching >> first()).get();
-            cjb.b->dropCharacter();
-            cjb.c->rescued();
-            m->cjb.erase(cjb);
+        if (dart.active) {
+            bird << Bird::State::dying;
+            auto matching = from(m->cjb) >> ref() >> where([&](CharacterJointBird const & cjb) { return cjb.b == &bird; });
+            if (matching >> any()) {
+                auto & cjb = (matching >> first()).get();
+                cjb.b->dropCharacter();
+                cjb.c->rescued();
+                m->cjb.erase(cjb);
+            }
+            bird.setAngle(0);
+            bird.setVel(vec2{0, -3});
+            cpBodySetAngVel(bird.body(), 0);
+            dart.setVel({0, 0});
+            m->removeWhenSpaceUnlocked(dart);
         }
-        bird.setAngle(0);
-        bird.setVel(vec2{0, -3});
-        cpBodySetAngVel(bird.body(), 0);
-        dart.setVel({0, 0});
-        m->removeWhenSpaceUnlocked(dart);
     });
 
     m->onCollision([=](DartImpl & dart, NoActor<ct_ground> &, cpArbiter *) {
@@ -312,12 +353,14 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     });
 
     m->onCollision([=](DartImpl & dart, CharacterImpl & character, cpArbiter * arb) {
-        character << Character::State::dead;
-        m->removeWhenSpaceUnlocked(dart);
-        m->whenSpaceUnlocked([&] {
-            cpSpaceRemoveBody(character.space(), character.body());
-            cpSpaceConvertBodyToStatic(character.space(), character.body());
-        }, &dart);
+        if (dart.active) {
+            character << Character::State::dead;
+            m->removeWhenSpaceUnlocked(dart);
+            /*m->whenSpaceUnlocked([&] {
+                cpSpaceRemoveBody(character.space(), character.body());
+                cpSpaceConvertBodyToStatic(character.space(), character.body());
+            }, &dart);*/
+        }
         return false;
     });
 
