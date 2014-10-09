@@ -288,37 +288,37 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     }
 
     m->onCollision([=](CharacterImpl & character, BirdImpl & bird, cpArbiter * arb) {
-        if (bird.canGrabCharacter() && character.canBeKidnapped() && cpArbiterIsFirstContact(arb)) {
-            if (!(from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.b == &bird; }))) {
-                vec2 v = bird.vel();
-
-                m->cjb.insert(CharacterJointBird{&character, bird.grabCharacter(*character.body()), &bird});
-
-                character.kidnapped();
-                v.y = -v.y;
-                bird.escapeVel = to_vec2(cpvnormalize(to_cpVect((v))));
-                for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
-
-                // send birds after new target
-                from(m->targets) >> for_each([&](BirdTargetCharacter const & targets) {
-                    if (targets.c == &character && targets.b != &bird) {
-                        newTarget(bird);
-                    }
-                });
-            }
-        } else {
+        if (!(bird.canGrabCharacter() && character.canBeKidnapped() && cpArbiterIsFirstContact(arb))) {
             return false;
+        }
+
+        if (!(from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.b == &bird; }))) {
+            vec2 v = bird.vel();
+
+            m->cjb.insert(CharacterJointBird{&character, bird.grabCharacter(*character.body()), &bird});
+
+            character.kidnapped();
+            v.y = -v.y;
+            bird.escapeVel = to_vec2(cpvnormalize(to_cpVect((v))));
+            for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
+
+            // send birds after new target
+            from(m->targets) >> for_each([&](BirdTargetCharacter const & targets) {
+                if (targets.c == &character && targets.b != &bird) {
+                    newTarget(bird);
+                }
+            });
         }
         return true;
     });
 
     m->onCollision([=](DartImpl &, BirdImpl & bird, cpArbiter * arb) {
-        if (bird.canBeShot()) {
-            if(cpArbiterIsFirstContact(arb)) {
-                m->score += 10;
-            }
-        } else {
+        if (!bird.canBeShot()) {
             return false;
+        }
+
+        if(cpArbiterIsFirstContact(arb)) {
+            m->score += 10;
         }
         return true;
     });
@@ -364,24 +364,29 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     });
 
     m->onPostSolve([=](CharacterImpl & character, NoActor<ct_ground> &, cpArbiter *) {
-        if (character.state() == Character::State::startled) {
-            character << Character::State::determined;
-            delay(rand<float>(0.1, 0.8), [&] {
-                character << Character::State::reloading;
-            }).cancel(destroyed);
-        } else if (character.state() == Character::State::rescued) {
-            character.reload();
+        switch (character.state()) {
+            case Character::State::startled:
+                character << Character::State::determined;
+                delay(rand<float>(0.1, 0.8), [&] {
+                    character << Character::State::reloading;
+                }).cancel(destroyed);
+                break;
+            case Character::State::rescued:
+                character.reload();
+                break;
+            default:
+                break;
         }
     });
 
     m->onCollision([=](BirdImpl & bird, NoActor<ct_ground> &, cpArbiter *) {
-        if (bird.state() == Bird::State::dying) {
-            bird << Bird::State::puff;
-            bird.setVel({0, 0});
-            delay(0.85, [&]{ m->removeWhenSpaceUnlocked(bird); }).cancel(destroyed);
-        } else {
+        if (bird.state() != Bird::State::dying) {
             return false;
         }
+
+        bird << Bird::State::puff;
+        bird.setVel({0, 0});
+        delay(0.85, [&]{ m->removeWhenSpaceUnlocked(bird); }).cancel(destroyed);
         return true;
     });
 
