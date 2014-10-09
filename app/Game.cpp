@@ -305,7 +305,6 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                         newTarget(bird);
                     }
                 });
-
             }
         } else {
             return false;
