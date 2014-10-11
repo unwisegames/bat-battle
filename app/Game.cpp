@@ -234,7 +234,10 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                           >> where([&](CharacterImpl const & c) { return m->isKidnappable(c); }));
 
         if (available >> any()) {
+            m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &b; });
             auto & c = (available >> first()).get();
+
+            m->targets.insert(BirdTargetCharacter{&b, &c});
             b.newTarget(c.pos());
         }
     };
@@ -303,7 +306,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             // send birds after new target
             from(m->targets) >> for_each([&](BirdTargetCharacter const & targets) {
                 if (targets.c == &character && targets.b != &bird) {
-                    newTarget(bird);
+                    newTarget(*targets.b);
                 }
             });
         }
