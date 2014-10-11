@@ -8,7 +8,6 @@
 #include <bricabrac/Math/MathUtil.h>
 #include <bricabrac/Math/Random.h>
 #include <bricabrac/Logging/Logging.h>
-#include <bricabrac/Data/cpplinq.hpp>
 #include <bricabrac/Data/Relation.h>
 
 #include <unordered_set>
@@ -230,7 +229,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
 
     auto newTarget = [=](BirdImpl & b) {
         auto available = (from(m->actors<CharacterImpl>())
-                          >> ref()
+                          >> mutable_ref()
                           >> where([&](CharacterImpl const & c) { return m->isKidnappable(c); }));
 
         if (available >> any()) {
