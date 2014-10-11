@@ -221,7 +221,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> 
 
     bool isKidnappable(CharacterImpl const & c) {
         return (c.state() != Character::State::rescued &&
-                (from(cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == &c; })));
+                !(from(cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == &c; })));
     }
 };
 
@@ -237,10 +237,6 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             auto & c = (available >> first()).get();
             b.newTarget(c.pos());
         }
-
-        // But this also fails with the same error.
-        auto c = from(m->actors<CharacterImpl>()) >> count();
-        std::cerr << c;
     };
 
     if (mode == m_menu) {
