@@ -252,7 +252,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                 b.newTarget(c.pos());
             } else {
                 // otherwise pick any available target at random
-                int i = 1; auto r = rand<int>(1, (available >> count()));
+                int i = 1; auto r = rand<int>(1, int(available >> count()));
                 available >> for_each([&](CharacterImpl & c) {
                     if (i == r) {
                         m->targets.insert(BirdTargetCharacter{&b, &c});
