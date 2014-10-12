@@ -11,7 +11,7 @@ constexpr float GRAVITY = -30;
 constexpr float LAUNCH_OFFSET = 1;
 constexpr float WORLD_GRAVITY = -10;
 constexpr int   CHARACTERS = 4; // Temporary: move to GameParams struct and passed as param to newGame?
-constexpr int   BIRDS = 10;
+constexpr int   BIRDS = 5;
 constexpr float BIRDFREQUENCY = 3.5;
 
 struct Character : brac::Actor {
@@ -44,9 +44,6 @@ struct Character : brac::Actor {
 struct Bird : brac::Actor {
     enum State { side, front, rear, dying, puff };
 
-    Character * target() const;
-    Character * captive() const;
-
     virtual bool isFlying() const = 0;
 };
 
@@ -57,18 +54,13 @@ constexpr GameMode MODE = m_menu;
 
 class Game : public brac::GameBase, public std::enable_shared_from_this<Game> {
 public:
-    enum HoopState { hoop_on = 1, hoop_off = 0 };
-    enum ShotlineState { line_default = 0, line_red = 1 };
-
     struct State {
         size_t score = 0;
-        HoopState hoop_state = hoop_off;
-        ShotlineState line_state = line_default;
-        std::string alert = "";
         GameMode mode;
-        size_t clock = 0;
         std::shared_ptr<Button> back{std::make_shared<Button>(atlas.back, brac::vec2{-9.2, 10}, 1)};
         std::shared_ptr<Button> restart{std::make_shared<Button>(atlas.restart, brac::vec2{-7.9, 10}, 1)};
+        size_t rem_birds;
+        size_t rem_chars;
     };
 
     brac::Signal<void()> show_menu;

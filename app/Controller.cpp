@@ -2,6 +2,7 @@
 #include "background.sprites.h"
 #include "font.sprites.h"
 #include "characters.sprites.h"
+#include "atlas.sprites.h"
 #include "Menu.h"
 #include "GameOver.h"
 
@@ -189,6 +190,9 @@ void Controller::onDraw() {
 
         state.back->draw(pmv());
         state.restart->draw(pmv());
+
+        SpriteProgram::drawText(std::to_string(state.rem_birds), font.glyphs, -1, pmv() * mat4::translate({0    , m->top-1, 0}) * mat4::scale(0.5));
+        SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-0.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
     }
 }
 

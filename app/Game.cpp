@@ -19,7 +19,7 @@ enum Group : cpGroup { gr_bird = 1 };
 
 enum Layer : cpLayers { l_all = 1<<0, l_character = 1<<1 };
 
-enum CollisionType : cpCollisionType { ct_universe = 1, ct_ground };
+enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground };
 
 struct CharacterImpl : BodyShapes<Character> {
     vec2 launchVel_ = {0, 0};
@@ -91,12 +91,16 @@ struct CharacterImpl : BodyShapes<Character> {
         if (isAiming()) {
             dontAim();
         }
-        setState(Character::State::yell);
-        delay(1, [=]{ setState(Character::State::crying); }).cancel(destroyed);
+        if (state() != Character::State::dead) {
+            setState(Character::State::yell);
+            delay(1, [=]{ setState(Character::State::crying); }).cancel(destroyed);
+        }
     }
 
     void rescue() {
-        setState(Character::State::rescued);
+        if (state() != Character::State::dead) {
+            setState(Character::State::rescued);
+        }
     }
 
     void startle() {
@@ -109,11 +113,10 @@ struct BirdImpl : BodyShapes<Bird> {
     bool hasCaptive = false;
     vec2 escapeVel;
 
-    BirdImpl(cpSpace * space, int type, vec2 const & pos, vec2 const & tar)
+    BirdImpl(cpSpace * space, int type, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_bird, l_all}
     {
         setForce({0, -WORLD_GRAVITY});
-        setVel(to_vec2(cpvnormalize(to_cpVect(tar - pos))));
     }
 
     void newTarget(vec2 targetPos) {
@@ -206,13 +209,10 @@ struct BirdTargetCharacter {
 
 struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> {
     ShapePtr worldBox{sensor(boxShape(20, 30, {0, 0}, 0), ct_universe)};
+    ShapePtr abyssWalls[3];
     ShapePtr ground{segmentShape({-10, 2}, {10, 2})};
-    ShapePtr walls[3], hoop[2];
-    size_t n_for_n = 0;
-    bool touched_sides = false;
-    int bounced_walls = 0;
-    size_t score_modifier = 0;
-    std::unique_ptr<ExpTicker> tick;
+    size_t created_birds = 0;
+    std::unique_ptr<Ticker> tick;
     Relation<CharacterJointBird> cjb;
     Relation<BirdTargetCharacter> targets;
 
@@ -222,22 +222,43 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> 
         return (c.state() != Character::State::rescued &&
                 !(from(cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == &c; })));
     }
+
+    bool isBeingTargeted(CharacterImpl const & c) {
+        return (from(targets) >> any([&](BirdTargetCharacter const & t) { return t.c == &c; }));
+    }
 };
 
 Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Members{st}} {
     m->mode = mode;
 
     auto newTarget = [=](BirdImpl & b) {
+        m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &b; });
+
         auto available = (from(m->actors<CharacterImpl>())
                           >> mutable_ref()
                           >> where([&](CharacterImpl const & c) { return m->isKidnappable(c); }));
 
         if (available >> any()) {
-            m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &b; });
-            auto & c = (available >> first()).get();
-
-            m->targets.insert(BirdTargetCharacter{&b, &c});
-            b.newTarget(c.pos());
+            auto not_targeted = available >> where([&](CharacterImpl const & c) { return !m->isBeingTargeted(c); });
+            if (not_targeted >> any()) {
+                // get first untargeted character
+                auto & c = (not_targeted >> first()).get();
+                m->targets.insert(BirdTargetCharacter{&b, &c});
+                b.newTarget(c.pos());
+            } else {
+                // otherwise pick any available target at random
+                int i = 1; auto r = rand<int>(1, (available >> count()));
+                available >> for_each([&](CharacterImpl & c) {
+                    if (i == r) {
+                        m->targets.insert(BirdTargetCharacter{&b, &c});
+                        b.newTarget(c.pos());
+                    }
+                    ++i;
+                });
+            }
+        } else {
+            // TODO: Fly around naturally, waiting for available character (actually, end of game?)
+            b.setVel({0, 0});
         }
     };
 
@@ -245,6 +266,14 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         delay(0, [=]{ show_menu(); }).cancel(destroyed);
     } else {
         m->setGravity({0, WORLD_GRAVITY});
+        //m->abyss = m->sensor(m->boxShape(20, top*2, {0, 0}, 0), ct_abyss);
+        m->abyssWalls[0] = m->sensor(m->segmentShape({-10, top}, {-10, -10}), ct_abyss);  // left
+        m->abyssWalls[1] = m->sensor(m->segmentShape({10, top}, {10, -10}), ct_abyss);    // right
+        m->abyssWalls[2] = m->sensor(m->segmentShape({-10, top}, {10, top}), ct_abyss);   // top
+        m->rem_birds = BIRDS;
+        m->rem_chars = CHARACTERS;
+        m->back->setY(top - 0.8);
+        m->restart->setY(top - 0.8);
 
         cpShapeSetCollisionType(&*m->ground, ct_ground);
 
@@ -260,30 +289,27 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         };
 
         auto createBird = [=]{
-            auto pos = vec2{rand<float>(-10, 10), rand<float>(top, top - 2)};
-            vec2 target{0, 0};
-
-            auto t = rand<int>(1, int(m->actors<CharacterImpl>().size()));
-            int i = 1;
-            for (auto & c : m->actors<CharacterImpl>()) {
-                if (i == t) {
-                    target = c.pos();
-                    m->targets.insert(BirdTargetCharacter{&m->emplace<BirdImpl>(0, pos, target), &c});
-                }
-                ++i;
-            }
+            auto & b = m->emplace<BirdImpl>(0, vec2{rand<float>(-10, 10), rand<float>(top, top - 2)});
+            newTarget(b);
         };
-
-        m->back->setY(top - 0.8);
-        m->restart->setY(top - 0.8);
 
         createCharacters();
         delay(3, [=]{
             for (auto & c : m->actors<CharacterImpl>()) c.startle();
         }).cancel(destroyed);
 
-        m->tick.reset(new ExpTicker{BIRDFREQUENCY, [=]{
-            createBird();
+        // create birds
+        m->tick.reset(new Ticker{BIRDFREQUENCY, [=]{
+            delay(rand<float>(0, 1), [&]{
+                if (m->created_birds < int(BIRDS)) {
+                    if (from(m->actors<CharacterImpl>()) >> any([&](CharacterImpl const & c) { return m->isKidnappable(c); })) {
+                        createBird();
+                        ++m->created_birds;
+                    }
+                } else {
+                //    m->tick.reset();
+                }
+            }).cancel(destroyed);
         }});
     }
 
@@ -296,6 +322,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             vec2 v = bird.vel();
 
             m->cjb.insert(CharacterJointBird{&character, bird.grabCharacter(*character.body()), &bird});
+            m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &bird; });
 
             character.kidnap();
             v.y = -v.y;
@@ -304,7 +331,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
 
             // send birds after new target
             from(m->targets) >> for_each([&](BirdTargetCharacter const & targets) {
-                if (targets.c == &character && targets.b != &bird) {
+                if (targets.c == &character && targets.b != &bird && targets.b->isFlying()) {
                     newTarget(*targets.b);
                 }
             });
@@ -325,6 +352,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
 
     m->onPostSolve([=](DartImpl & dart, BirdImpl & bird, cpArbiter * arb) {
         if (dart.active) {
+            m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &bird; });
             bird.setState(Bird::State::dying);
             auto matching = from(m->cjb) >> ref() >> where([&](CharacterJointBird const & cjb) { return cjb.b == &bird; });
             if (matching >> any()) {
@@ -338,6 +366,12 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             cpBodySetAngVel(bird.body(), 0);
             dart.setVel({0, 0});
             m->removeWhenSpaceUnlocked(dart);
+            --m->rem_birds;
+
+            if (m->rem_birds == 0) {
+                // TODO: celebrate
+                delay(2, [=]{ gameOver(); }).cancel(destroyed);
+            }
         }
     });
 
@@ -355,10 +389,6 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         if (dart.active) {
             character.setState(Character::State::dead);
             m->removeWhenSpaceUnlocked(dart);
-            /*m->whenSpaceUnlocked([&] {
-             cpSpaceRemoveBody(character.space(), character.body());
-             cpSpaceConvertBodyToStatic(character.space(), character.body());
-             }, &dart);*/
         }
         return false;
     });
@@ -366,6 +396,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     m->onPostSolve([=](CharacterImpl & character, NoActor<ct_ground> &, cpArbiter *) {
         switch (character.state()) {
             case Character::State::startled:
+                character.setVel({0, 0});
                 character.setState(Character::State::determined);
                 delay(rand<float>(0.1, 0.8), [&] {
                     character.setState(Character::State::reloading);
@@ -373,6 +404,11 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                 break;
             case Character::State::rescued:
                 character.reload();
+                break;
+            case Character::State::dead:
+                if (!(from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == &character; }))) {
+                    character.setVel({0, 0});
+                }
                 break;
             default:
                 break;
@@ -390,17 +426,35 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         return true;
     });
 
-    m->onSeparate([=](CharacterImpl & character, NoActor<ct_universe> &) {
+    /*m->onSeparate([=](CharacterImpl & character, NoActor<ct_universe> &) {
         // This is broken
         size_t size = m->actors<CharacterImpl>().size();
         //m->removeWhenSpaceUnlocked(character);
         if (size == 1) {
             gameOver();
         }
-    });
+    });*/
 
-    m->onSeparate([=](BirdImpl & bird, NoActor<ct_universe> &) {
-        // m->removeWhenSpaceUnlocked(bird);
+    m->onSeparate([=](BirdImpl & bird, NoActor<ct_abyss> &) {
+        auto matching = from(m->cjb) >> ref() >> where([&](CharacterJointBird const & cjb) { return cjb.b == &bird; });
+        if (matching >> any()) {
+            auto & cjb = (matching >> first()).get();
+            m->cjb.erase(cjb);
+            //m->removeWhenSpaceUnlockedIf(from (m->actors<CharacterImpl>()) >> where([&](CharacterImpl const & c) { return &c == cjb.c; }));
+            for (auto & c : m->actors<CharacterImpl>()) {
+                if (&c == cjb.c) {
+                    m->removeWhenSpaceUnlocked(c);
+                }
+            }
+            m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &bird; });
+            m->removeWhenSpaceUnlocked(bird);
+            --m->created_birds; // bird will be replaced
+            --m->rem_chars;
+
+            if (m->rem_chars == 0) {
+                delay(2, [=]{ gameOver(); }).cancel(destroyed);
+            }
+        }
     });
 }
 
