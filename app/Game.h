@@ -11,7 +11,6 @@ constexpr float GRAVITY = -30;
 constexpr float LAUNCH_OFFSET = 1;
 constexpr float WORLD_GRAVITY = -10;
 constexpr float ATTACK_LINE_Y = 6;
-constexpr float STARTLE_LINE_Y = 9;
 
 // Temporary: move to GameParams struct and passed as param to newGame?
 constexpr int   CHARACTERS = 5;

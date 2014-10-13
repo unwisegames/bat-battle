@@ -309,7 +309,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         };
 
         auto createBird = [=]{
-            auto & b = m->emplace<BirdImpl>(0, vec2{rand<float>(-10, 10), rand<float>(top, top - 2)});
+            auto & b = m->emplace<BirdImpl>(0, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)});
             newTarget(b);
         };
 
@@ -393,7 +393,6 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             --m->rem_birds;
 
             if (m->rem_birds == 0) {
-                // celebrate
                 for (auto & c : m->actors<CharacterImpl>()) {
                     c.celebrate();
                 }
