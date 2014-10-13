@@ -536,6 +536,7 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
             virtual void moved(vec2 const & p, bool) {
                 if (auto self = weak_self.lock()) {
                     auto v = first_p - p;
+                    character->setState(Character::State::aim);
                     if (float s = length(v)) {
                         character->aim((14 + 2 * s) / s * v);
                     }
@@ -543,7 +544,6 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
             }
         };
 
-        character->setState(Character::State::aim);
         return std::unique_ptr<TouchHandler>{new CharacterAimAndFireHandler{*this, p, character}};
     }
     
