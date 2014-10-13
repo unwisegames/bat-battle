@@ -8,6 +8,7 @@ def frame(X, Y, duration):
 sprites(
     character=[
                loop(frame(10.5, 1.5,    1)),    #biggrin
+               loop(frame(10.5, 1.5,    1)),    #celebrating
                loop(frame(10.5, 1.5,    1)),    #rescued
                loop(frame(2, 2.5,       1)),    #confused
                loop(frame(8, 2.5,       1)),    #dead

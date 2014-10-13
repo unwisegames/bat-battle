@@ -19,7 +19,7 @@ enum Group : cpGroup { gr_bird = 1 };
 
 enum Layer : cpLayers { l_all = 1<<0, l_character = 1<<1 };
 
-enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_attack };
+enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_attack, ct_startle };
 
 struct CharacterImpl : BodyShapes<Character> {
     vec2 launchVel_ = {0, 0};
@@ -103,9 +103,17 @@ struct CharacterImpl : BodyShapes<Character> {
         }
     }
 
+    void celebrate() {
+        if (state() != Character::State::dead) {
+            setAngle(0);
+            setState(Character::State::celebrating);
+            setVel({0, rand<float>(1.5, 3)});
+        }
+    }
+
     void startle() {
-        setState(Character::State::startled);
         setVel({0, 1.5});
+        setState(Character::State::startled);
     }
 };
 
@@ -212,10 +220,12 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> 
     ShapePtr abyssWalls[3];
     ShapePtr ground{segmentShape({-10, 2}, {10, 2})};
     ShapePtr attackLine{sensor(segmentShape({-10, ATTACK_LINE_Y}, {10, ATTACK_LINE_Y}), ct_attack)};
+    ShapePtr startleLine;
     size_t created_birds = 0;
     std::unique_ptr<Ticker> tick;
     Relation<CharacterJointBird> cjb;
     Relation<BirdTargetCharacter> targets;
+    bool startled = false;
 
     Members(SpaceTime & st) : Impl{st} { }
 
@@ -230,6 +240,10 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> 
 
     bool hasCaptive(BirdImpl const & b) {
         return (from(cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.b == &b; }));
+    }
+
+    bool isCaptive(CharacterImpl const & c) {
+        return (from(cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == &c; }));
     }
 };
 
@@ -275,6 +289,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         m->abyssWalls[0] = wall({-10, top}, {-10, -10});  // left
         m->abyssWalls[1] = wall({10,  top}, {10,  -10});  // right
         m->abyssWalls[2] = wall({-10, top}, {10,  top});  // top
+        m->startleLine = m->sensor(m->segmentShape({-10, top - 1}, {10, top - 1}), ct_startle);
         m->rem_birds = BIRDS;
         m->rem_chars = CHARACTERS;
         m->back->setY(top - 0.8);
@@ -299,9 +314,6 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         };
 
         createCharacters();
-        delay(3, [=]{
-            for (auto & c : m->actors<CharacterImpl>()) c.startle();
-        }).cancel(destroyed);
 
         // create birds
         m->tick.reset(new Ticker{BIRDFREQUENCY, [=]{
@@ -381,8 +393,11 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             --m->rem_birds;
 
             if (m->rem_birds == 0) {
-                // TODO: celebrate
-                delay(2, [=]{ gameOver(); }).cancel(destroyed);
+                // celebrate
+                for (auto & c : m->actors<CharacterImpl>()) {
+                    c.celebrate();
+                }
+                delay(4, [=]{ gameOver(); }).cancel(destroyed);
             }
         }
     });
@@ -405,25 +420,29 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         return false;
     });
 
-    m->onPostSolve([=](CharacterImpl & character, NoActor<ct_ground> &, cpArbiter *) {
-        switch (character.state()) {
-            case Character::State::startled:
-                character.setVel({0, 0});
-                character.setState(Character::State::determined);
-                delay(rand<float>(0.1, 0.8), [&] {
-                    character.setState(Character::State::reloading);
-                }).cancel(destroyed);
-                break;
-            case Character::State::rescued:
-                character.reload();
-                break;
-            case Character::State::dead:
-                if (!(from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == &character; }))) {
-                    character.setVel({0, 0});
-                }
-                break;
-            default:
-                break;
+    m->onPostSolve([=](CharacterImpl & character, NoActor<ct_ground> &, cpArbiter * arb) {
+        if (cpArbiterIsFirstContact(arb)) {
+            character.setAngle(0);
+            switch (character.state()) {
+                case Character::State::startled:
+                    character.setState(Character::State::determined);
+                    delay(rand<float>(0.1, 0.8), [&] {
+                        character.reload();
+                    }).cancel(destroyed);
+                    break;
+                case Character::State::rescued:
+                    character.reload();
+                    break;
+                case Character::State::celebrating:
+                    character.setVel({0, rand<float>(1.5, 3)});
+                    break;
+                case Character::State::dead:
+                    if (!m->isCaptive(character)) {
+                        character.setVel({0, 0});
+                    }
+                default:
+                    break;
+            }
         }
     });
 
@@ -443,6 +462,13 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             !m->hasCaptive(bird) &&
             bird.state() != Bird::State::dying) {
             newTarget(bird);
+        }
+    });
+
+    m->onCollision([=](BirdImpl & bird, NoActor<ct_startle> &) {
+        if (!m->startled) {
+            for (auto & c : m->actors<CharacterImpl>()) c.startle();
+            m->startled = true;
         }
     });
 
