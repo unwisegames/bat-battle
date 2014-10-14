@@ -117,9 +117,11 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 };
 
+constexpr float F = 1;
 struct BirdImpl : BodyShapes<Bird> {
     bool hasCaptive = false;
     vec2 escapeVel;
+    vec2 velocity;
 
     BirdImpl(cpSpace * space, int type, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_bird, l_all}
@@ -128,7 +130,8 @@ struct BirdImpl : BodyShapes<Bird> {
     }
 
     void newTarget(vec2 targetPos) {
-        setVel(to_vec2(cpvnormalize(to_cpVect(targetPos - pos()))));
+//        setVel(to_vec2(cpvnormalize(to_cpVect(targetPos - pos()))));
+        setVelocity(to_vec2(cpvnormalize(to_cpVect(targetPos - pos()))));
     }
 
     void newState(size_t & loop) override {
@@ -143,7 +146,12 @@ struct BirdImpl : BodyShapes<Bird> {
             } else {
                 setState(Bird::State::side);
             }
-            if (hasCaptive) {
+
+            if (!hasCaptive) {
+                auto dv = velocity - vel();
+                float epsilon = 0.01;
+                setForce(((length_sq(dv) > epsilon) * F * unit(dv)) + vec2{0, -WORLD_GRAVITY});
+            } else {
                 // maintain velocity
                 setVel(escapeVel);
                 setAngle(0);
@@ -161,6 +169,10 @@ struct BirdImpl : BodyShapes<Bird> {
 
     bool canBeShot() {
         return isFlying();
+    }
+
+    void setVelocity(vec2 vel) {
+        velocity = vel;
     }
 
     array<ConstraintPtr, 2> grabCharacter(cpBody & b) {
@@ -277,7 +289,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             }
         } else {
             // TODO: Fly around naturally, waiting for available character (actually, end of game?)
-            b.setVel({0, 0});
+//            b.setVel({0, 0});
+            b.setVelocity({0, 0});
         }
     };
 
@@ -355,7 +368,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                         // flying too low to target new character
                         m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == targets.b; });
                         vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
-                        targets.b->setVel(to_vec2(cpvnormalize(to_cpVect(atp - targets.b->pos()))));
+                        targets.b->setVelocity(to_vec2(cpvnormalize(to_cpVect(atp - targets.b->pos()))));
                     }
                 }
             });
@@ -386,7 +399,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                 m->cjb.erase(cjb);
             }
             bird.setAngle(0);
-            bird.setVel(vec2{0, -3});
+            bird.setVelocity(vec2{0, -3});
             cpBodySetAngVel(bird.body(), 0);
             dart.setVel({0, 0});
             m->removeWhenSpaceUnlocked(dart);
@@ -451,7 +464,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         }
 
         bird.setState(Bird::State::puff);
-        bird.setVel({0, 0});
+        bird.setVelocity({0, 0});
         delay(0.85, [&]{ m->removeWhenSpaceUnlocked(bird); }).cancel(destroyed);
         return true;
     });

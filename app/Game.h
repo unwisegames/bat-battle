@@ -13,8 +13,8 @@ constexpr float WORLD_GRAVITY = -10;
 constexpr float ATTACK_LINE_Y = 6;
 
 // Temporary: move to GameParams struct and passed as param to newGame?
-constexpr int   CHARACTERS = 5;
-constexpr int   BIRDS = 15;
+constexpr int   CHARACTERS = 2;
+constexpr int   BIRDS = 10;
 constexpr float BIRDFREQUENCY = 3.5;
 
 struct Character : brac::Actor {
