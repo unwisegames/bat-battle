@@ -13,7 +13,12 @@ def bat(*points):
              (floodfill((6.05, 0.42)), 0.15),
              (floodfill((3.9, 0.65)), 0.15),
         ),
-        loop(*frames),
+        loop(
+             (floodfill((1.23, 3.7)), 0.15),
+             (floodfill((3.82, 3.7)), 0.15),
+             (floodfill((6.2, 3.55)), 0.15),
+             (floodfill((3.82, 3.7)), 0.15),
+             ),
         loop(
              (floodfill((10.8, 0.9)), 0.15),
              (floodfill((10.8, 2.45)), 0.15),
