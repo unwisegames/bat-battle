@@ -293,6 +293,20 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         }
     };
 
+    // send random birds after character
+    auto targetCharacter = [=](CharacterImpl & c) {
+        auto available = (from(m->actors<BirdImpl>())
+                          >> mutable_ref()
+                          >> where([&](BirdImpl const & b) { return !m->hasCaptive(b) && b.pos().y > ATTACK_LINE_Y && b.isFlying(); }));
+        if (available >> any()) {
+            // send first available bird after c for now
+            auto & b = (available >> first()).get();
+            m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &b; });
+            m->targets.insert(BirdTargetCharacter{&b, &c});
+            b.setDesiredPos(c.pos());
+        }
+    };
+
     if (mode == m_menu) {
         delay(0, [=]{ show_menu(); }).cancel(destroyed);
     } else {
@@ -444,6 +458,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                     break;
                 case Character::State::rescued:
                     character.reload();
+                    targetCharacter(character);
                     break;
                 case Character::State::celebrating:
                     character.setVel({0, rand<float>(1.5, 3)});
