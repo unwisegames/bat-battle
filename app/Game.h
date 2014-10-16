@@ -16,6 +16,7 @@ constexpr float ATTACK_LINE_Y = 6;
 constexpr int   CHARACTERS = 2;
 constexpr int   BIRDS = 10;
 constexpr float BIRDFREQUENCY = 3.5;
+constexpr float BIRD_SPEED = 1;
 
 struct Character : brac::Actor {
     enum State {

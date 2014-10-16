@@ -148,12 +148,12 @@ struct BirdImpl : BodyShapes<Bird> {
             }
 
             if (isFlying() && !hasCaptive) {
-                auto dv = unit(desired_pos - pos()) - vel();
+                auto dv = unit(desired_pos - pos()) * BIRD_SPEED - vel();
                 float epsilon = 0.01;
                 setForce(((length_sq(dv) > epsilon) * F * unit(dv)) + vec2{0, -WORLD_GRAVITY});
             } else {
                 // maintain velocity
-                setVel(escapeVel);
+                setVel(escapeVel * BIRD_SPEED);
                 setAngle(0);
             }
         }
@@ -362,11 +362,10 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         }
 
         if (!(from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.b == &bird; }))) {
+            character.kidnap();
 
             m->cjb.insert(CharacterJointBird{&character, bird.grabCharacter(*character.body()), &bird});
             m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &bird; });
-
-            character.kidnap();
 
             vec2 p = {rand<float>(-10, 10), rand<float>(top, top + 1)};
             bird.escapeVel = unit(p - bird.pos());
