@@ -22,9 +22,12 @@ struct Controller::Members {
     float angle = 0;
     bool newGame = false;
     GameMode mode = m_menu;
+    int level = 0;
     float top = 0;
 
     // Persistent data
+    Persistent<int> highestCompletedLevel{"highestCompletedLevel"};
+
     Persistent<int> totalPoints{"totalPoints"};
     Persistent<int> bestScore{"bestScore"};
     Persistent<int> arcGamesPlayed{"arcGamesPlayed"};
@@ -32,20 +35,21 @@ struct Controller::Members {
 };
 
 Controller::Controller() : m{new Controller::Members{}} {
-    newGame(MODE);
+    newGame(MODE, 1);
 }
 
 Controller::~Controller() { }
 
-void Controller::newGame(GameMode mode) {
+void Controller::newGame(GameMode mode, int level) {
     m->newGame = false;
-    m->game = std::make_shared<Game>(spaceTime(), mode, m->top);
+    m->game = std::make_shared<Game>(spaceTime(), mode, level, m->top);
 
     auto const & state = m->game->state();
 
-    auto newGame = [=](GameMode mode) {
+    auto newGame = [=](GameMode mode, int level) {
         return [=]{
             m->mode = mode;
+            m->level = level;
             m->newGame = true;
         };
     };
@@ -96,6 +100,10 @@ void Controller::newGame(GameMode mode) {
     m->game->ended += [=] {
         auto const & state = m->game->state();
 
+        if (state.level_passed && state.level > *m->highestCompletedLevel) {
+            m->highestCompletedLevel = state.level;
+        }
+
         size_t score = state.score;
         if (score > 0) {
             if (score > *m->bestScore) {
@@ -113,15 +121,16 @@ void Controller::newGame(GameMode mode) {
             brag::total = tp;
         }
 
-        auto gameOver = emplaceController<GameOver>(mode, score, *m->bestScore);
-        gameOver->restart   ->clicked += newGame(m->mode);
-        gameOver->back      ->clicked += newGame(m_menu);
+        auto gameOver = emplaceController<GameOver>(mode, m->level, state.level_passed, score, *m->bestScore, state.playerStats, state.characterStats);
+        gameOver->back      ->clicked += newGame(m_menu, -1);
+        gameOver->restart   ->clicked += newGame(m->mode, m->level);
+        gameOver->next      ->clicked += newGame(m->mode, m->level + 1);
     };
 
     m->game->show_menu += [=] {
         auto menu = emplaceController<Menu>();
 
-        menu->play->clicked += newGame(m_play);
+        menu->play->clicked += newGame(m_play, *m->highestCompletedLevel + 1);
     };
 
     state.back->clicked += [=] {
@@ -142,7 +151,7 @@ bool Controller::onUpdate(float dt) {
         //newGame();
     }
     if (m->newGame) {
-        newGame(m->mode);
+        newGame(m->mode, m->level);
         return false;
     }
     m->angle += dt;
@@ -193,6 +202,10 @@ void Controller::onDraw() {
 
         SpriteProgram::drawText(std::to_string(state.rem_birds), font.glyphs, -1, pmv() * mat4::translate({0    , m->top-1, 0}) * mat4::scale(0.5));
         SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-0.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
+
+        if (!m->game->state().started) {
+            SpriteProgram::drawText("LEVEL " + std::to_string(m->level), font.glyphs, 0, pmv() * mat4::translate({0, m->top - 5, 0}), -0.1);
+        }
     }
 }
 

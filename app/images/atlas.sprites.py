@@ -26,5 +26,6 @@ sprites(
     gameovertext=floodfill((4, 11), scale=10, origin='center'),
     gameover=floodfill((9, 6), scale=10, origin='center'),
     fade=floodfill((10, 11), scale=999, origin='center'),
+    box=floodfill((10, 11), origin='center'),
     bathead=floodfill((4.5, 3.5), origin='center')
 )

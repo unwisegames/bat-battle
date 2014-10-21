@@ -12,7 +12,7 @@ public:
     Controller();
     ~Controller();
 
-    void newGame(GameMode mode);
+    void newGame(GameMode mode, int level);
 
 private:
     struct Members;

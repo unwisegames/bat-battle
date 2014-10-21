@@ -6,6 +6,7 @@ def frame(X, Y, duration):
     return (floodfill((X, Y), origin='center'), duration)
 
 sprites(
+    mugshot=floodfill((10.5, 1.5), origin='center'),
     character=[
                loop(frame(10.5, 1.5,    1)),    #biggrin
                loop(frame(10.5, 1.5,    1)),    #celebrating

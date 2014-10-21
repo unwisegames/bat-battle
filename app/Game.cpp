@@ -25,6 +25,8 @@ struct CharacterImpl : BodyShapes<Character> {
     vec2 launchVel_ = {0, 0};
     ShapePtr shape;
 
+    CharacterStats stats;
+
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
     : BodyShapes{space, newBody(1, INFINITY, pos), sensor(character.character), CP_NO_GROUP, l_all | l_character}
     {
@@ -33,10 +35,12 @@ struct CharacterImpl : BodyShapes<Character> {
         }
 
         shape = newCircleShape(0.3, {0, 0})(body());
+
+        stats.mugshot = character.mugshot;
     }
 
     virtual bool isAiming() const override {
-        return !!launchVel_ && state() == Character::State::aim;;
+        return !!launchVel_ && state() == Character::State::aim;
     }
 
     virtual vec2 const & launchVel() const override {
@@ -84,10 +88,12 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 
     void shoot() {
+        ++stats.dartsFired;
         setState(Character::State::shooting);
     }
 
     void kidnap() {
+        ++stats.kidnapped;
         if (isAiming()) {
             dontAim();
         }
@@ -227,6 +233,14 @@ struct BirdTargetCharacter {
     size_t hash() const { return hash_of(b, c); }
 };
 
+struct CharacterShotDart {
+    CharacterImpl * c;
+    DartImpl * d;
+
+    bool operator==(CharacterShotDart const & csd) const { return c == csd.c && d == csd.d; }
+    size_t hash() const { return hash_of(c, d); }
+};
+
 struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> {
     ShapePtr worldBox{sensor(boxShape(20, 30, {0, 0}, 0), ct_universe)};
     ShapePtr abyssWalls[3];
@@ -237,7 +251,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> 
     std::unique_ptr<Ticker> tick;
     Relation<CharacterJointBird> cjb;
     Relation<BirdTargetCharacter> targets;
-    bool startled = false;
+    Relation<CharacterShotDart> csd;
 
     Members(SpaceTime & st) : Impl{st} { }
 
@@ -257,10 +271,20 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> 
     bool isCaptive(CharacterImpl const & c) {
         return (from(cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == &c; }));
     }
+
+    bool firedDart(CharacterImpl const & c, DartImpl const & d) {
+        return (from(csd) >> any([&](CharacterShotDart const & csd) { return csd.c == &c && csd.d == &d; }));
+    }
 };
 
-Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Members{st}} {
+Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, m{new Members{st}} {
     m->mode = mode;
+    m->level = level;
+
+    auto removeCharacter = [=](CharacterImpl & c) {
+        archiveCharacterStats(c.stats);
+        m->removeWhenSpaceUnlocked(c);
+    };
 
     auto newTarget = [=](BirdImpl & b) {
         m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &b; });
@@ -404,6 +428,20 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         if (dart.active) {
             m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &bird; });
             bird.setState(Bird::State::dying);
+
+            // Score kill against character
+            auto shooter = (from(m->actors<CharacterImpl>())
+                            >> mutable_ref()
+                            >> where([&](CharacterImpl const & c) { return m->firedDart(c, dart); }));
+            if (shooter >> any()) {
+                auto & c = (shooter >> first()).get();
+                ++c.stats.birdsKilled;
+                if (from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.b == &bird; })) {
+                    ++c.stats.rescues;
+                }
+            }
+
+            // free captive, if necessary
             auto matching = from(m->cjb) >> ref() >> where([&](CharacterJointBird const & cjb) { return cjb.b == &bird; });
             if (matching >> any()) {
                 auto & cjb = (matching >> first()).get();
@@ -411,18 +449,22 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                 cjb.c->rescue();
                 m->cjb.erase(cjb);
             }
+            
             bird.setAngle(0);
             bird.setVel({0, -3});
             cpBodySetAngVel(bird.body(), 0);
             dart.setVel({0, 0});
+
+            m->csd >> removeIf([&](CharacterShotDart const & csd) { return csd.d == &dart; });
             m->removeWhenSpaceUnlocked(dart);
             --m->rem_birds;
+            ++m->playerStats.kills;
 
             if (m->rem_birds == 0) {
                 for (auto & c : m->actors<CharacterImpl>()) {
                     c.celebrate();
                 }
-                delay(4, [=]{ gameOver(); }).cancel(destroyed);
+                delay(4, [=]{ gameOver(true); }).cancel(destroyed);
             }
         }
     });
@@ -440,6 +482,17 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     m->onCollision([=](DartImpl & dart, CharacterImpl & character, cpArbiter * arb) {
         if (dart.active) {
             character.setState(Character::State::dead);
+
+            // Score friendly fire against character
+            auto shooter = (from(m->actors<CharacterImpl>())
+                            >> mutable_ref()
+                            >> where([&](CharacterImpl const & c) { return m->firedDart(c, dart); }));
+            if (shooter >> any()) {
+                auto & c = (shooter >> first()).get();
+                ++c.stats.friendlies;
+            }
+
+            m->csd >> removeIf([&](CharacterShotDart const & csd) { return csd.d == &dart; });
             m->removeWhenSpaceUnlocked(dart);
         }
         return false;
@@ -492,9 +545,9 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     });
 
     m->onCollision([=](BirdImpl & bird, NoActor<ct_startle> &) {
-        if (!m->startled) {
+        if (!m->started) {
             for (auto & c : m->actors<CharacterImpl>()) c.startle();
-            m->startled = true;
+            m->started = true;
         }
     });
 
@@ -516,7 +569,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                 //m->removeWhenSpaceUnlockedIf(from (m->actors<CharacterImpl>()) >> where([&](CharacterImpl const & c) { return &c == cjb.c; }));
                 for (auto & c : m->actors<CharacterImpl>()) {
                     if (&c == cjb.c) {
-                        m->removeWhenSpaceUnlocked(c);
+                        removeCharacter(c);
                     }
                 }
                 m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &bird; });
@@ -525,7 +578,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                 --m->rem_chars;
 
                 if (m->rem_chars == 0) {
-                    delay(2, [=]{ gameOver(); }).cancel(destroyed);
+                    delay(2, [=]{ gameOver(false); }).cancel(destroyed);
                 }
             } else {
                 if (bird.fromWhence) {
@@ -537,9 +590,17 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     });
 }
 
-void Game::gameOver() {
+void Game::gameOver(bool passed) {
     m->tick.reset();
+    m->level_passed = passed;
+    for (auto & c : m->actors<CharacterImpl>()) {
+        archiveCharacterStats(c.stats);
+    }
     end();
+}
+
+void Game::archiveCharacterStats(CharacterStats s) {
+    m->characterStats.emplace_back(s);
 }
 
 Game::~Game() { }
@@ -585,8 +646,10 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
                     // TODO: Return smoothly to upright posture.
                     if (character->isAiming()) {
                         if (vec2 const & vel = character->launchVel()) {
-                            self->m->emplace<DartImpl>(character->pos() + LAUNCH_OFFSET * unit(vel), vel);
+                            auto & dart = self->m->emplace<DartImpl>(character->pos() + LAUNCH_OFFSET * unit(vel), vel);
+                            self->m->csd.insert(CharacterShotDart{character, &dart});
                             character->shoot();
+                            ++self->m->playerStats.darts;
                         }
                     }
                 }

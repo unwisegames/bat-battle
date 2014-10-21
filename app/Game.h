@@ -54,18 +54,43 @@ struct Bird : brac::Actor {
 
 struct Dart : brac::Actor { };
 
+struct CharacterStats {
+    brac::SpriteDef mugshot;
+    int dartsFired;
+    int birdsKilled;
+    int friendlies;
+    int rescues;
+    int kidnapped;
+};
+
+struct PlayerStats {
+    // level-defining params
+    int characters = 0;
+    int birds = 0;
+
+    // live stats
+    size_t score = 0;
+    int darts = 0;
+    int kills = 0;
+};
+
 enum GameMode { m_menu, m_play, m_arcade, m_buzzer };
 constexpr GameMode MODE = m_menu;
 
 class Game : public brac::GameBase, public std::enable_shared_from_this<Game> {
 public:
     struct State {
+        bool started = false;
+        bool level_passed = false;
         size_t score = 0;
         GameMode mode;
+        int level;
         std::shared_ptr<Button> back{std::make_shared<Button>(atlas.back, brac::vec2{-9.2, 10}, 1)};
         std::shared_ptr<Button> restart{std::make_shared<Button>(atlas.restart, brac::vec2{-7.9, 10}, 1)};
         size_t rem_birds;
         size_t rem_chars;
+        PlayerStats playerStats;
+        std::vector<CharacterStats> characterStats;
     };
 
     brac::Signal<void()> show_menu;
@@ -82,13 +107,14 @@ public:
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits
     brac::Signal<void()> sharpshot;
 
-    Game(brac::SpaceTime & st, GameMode mode, float top);
+    Game(brac::SpaceTime & st, GameMode mode, int level, float top);
     ~Game();
 
     State const & state() const;
     
     virtual std::unique_ptr<brac::TouchHandler> fingerTouch(brac::vec2 const & p, float radius) override;
-    void gameOver();
+    void gameOver(bool passed);
+    void archiveCharacterStats(CharacterStats s);
 
 private:
     struct Members;

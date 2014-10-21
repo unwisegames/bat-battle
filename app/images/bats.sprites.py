@@ -1,6 +1,6 @@
 image('bats.xcf')
 grid(12, 12)
-scale(10)
+scale(12)
 
 def bat(*points):
     frames = [(floodfill(p), 0.15) for p in points]
