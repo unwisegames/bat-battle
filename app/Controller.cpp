@@ -161,7 +161,7 @@ bool Controller::onUpdate(float dt) {
 void Controller::onDraw() {
     auto const & state = m->game->state();
 
-    auto & sprite_context = AutoSprite<SpriteProgram>::context();
+    auto sprite_context = AutoSprite<SpriteProgram>::context();
     sprite_context->tint = {1, 1, 1, 1};
 
     SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 9.1, 0}));

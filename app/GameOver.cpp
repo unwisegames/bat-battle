@@ -21,7 +21,7 @@ GameOver::GameOver(GameMode m, int level, bool passed, size_t score, size_t best
 bool GameOver::onUpdate(float dt) { return true; }
 
 void GameOver::onDraw() {
-    auto & sprite_context = AutoSprite<SpriteProgram>::context();
+    auto sprite_context = AutoSprite<SpriteProgram>::context();
     sprite_context->tint = {1, 1, 1, 1};
 
     SpriteProgram::draw(atlas.fade, pmv());
