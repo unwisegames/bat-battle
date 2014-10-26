@@ -1,5 +1,5 @@
-#ifndef INCLUDED__Bounce__Game_h
-#define INCLUDED__Bounce__Game_h
+#ifndef INCLUDED__Claws__Game_h
+#define INCLUDED__Claws__Game_h
 
 #include "UI.h"
 #include "atlas.sprites.h"
@@ -17,6 +17,12 @@ constexpr int   CHARACTERS = 2;
 constexpr int   BIRDS = 10;
 constexpr float BIRDFREQUENCY = 3.5;
 constexpr float BIRD_SPEED = 1;
+
+// Scoring
+constexpr int   SCORE_DART_FIRED = 20;
+constexpr int   SCORE_BIRD_KILLED = 100;
+constexpr int   SCORE_CHAR_RESCUED = 150;
+constexpr int   SCORE_CHAR_SURVIVED = 1000;
 
 struct Character : brac::Actor {
     enum State {
@@ -56,11 +62,17 @@ struct Dart : brac::Actor { };
 
 struct CharacterStats {
     brac::SpriteDef mugshot;
-    int dartsFired;
-    int birdsKilled;
-    int friendlies;
-    int rescues;
-    int kidnapped;
+    int dartsFired = 0;
+    int birdsKilled = 0;
+    int friendlies = 0;
+    int rescues = 0;
+    int kidnapped = 0;
+
+    int score() {
+        return dartsFired * SCORE_DART_FIRED
+            + birdsKilled * SCORE_BIRD_KILLED
+            + rescues * SCORE_CHAR_RESCUED;
+    }
 };
 
 struct PlayerStats {
@@ -72,6 +84,8 @@ struct PlayerStats {
     size_t score = 0;
     int darts = 0;
     int kills = 0;
+    int remCharacters = 0;
+    float time = 0;
 };
 
 enum GameMode { m_menu, m_play, m_arcade, m_buzzer };
@@ -124,4 +138,4 @@ private:
     virtual void getActors(size_t actorId, void * buf) const override;
 };
 
-#endif // INCLUDED__Bounce__Game_h
+#endif // INCLUDED__Claws__Game_h

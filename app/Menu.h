@@ -1,5 +1,5 @@
-#ifndef INCLUDED__Bounce__Menu_h
-#define INCLUDED__Bounce__Menu_h
+#ifndef INCLUDED__Claws__Menu_h
+#define INCLUDED__Claws__Menu_h
 
 #include <bricabrac/Game/GameController.h>
 #include "Game.h"
@@ -24,4 +24,4 @@ private:
     virtual std::unique_ptr<brac::TouchHandler> onTouch(brac::vec2 const & worldPos, float radius) override;
 };
 
-#endif // INCLUDED__Bounce__Menu_h
+#endif // INCLUDED__Claws__Menu_h

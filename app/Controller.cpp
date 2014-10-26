@@ -46,7 +46,7 @@ void Controller::newGame(GameMode mode, int level) {
 
     auto const & state = m->game->state();
 
-    auto newGame = [=](GameMode mode, int level) {
+    auto newGame = [=](GameMode mode, int level = -1) {
         return [=]{
             m->mode = mode;
             m->level = level;
@@ -122,9 +122,11 @@ void Controller::newGame(GameMode mode, int level) {
         }
 
         auto gameOver = emplaceController<GameOver>(mode, m->level, state.level_passed, score, *m->bestScore, state.playerStats, state.characterStats);
-        gameOver->back      ->clicked += newGame(m_menu, -1);
+        gameOver->back      ->clicked += newGame(m_menu);
         gameOver->restart   ->clicked += newGame(m->mode, m->level);
         gameOver->next      ->clicked += newGame(m->mode, m->level + 1);
+        gameOver->backf     ->clicked += newGame(m_menu);
+        gameOver->restartf  ->clicked += newGame(m->mode, m->level);
     };
 
     m->game->show_menu += [=] {

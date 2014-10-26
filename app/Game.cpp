@@ -252,6 +252,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl> 
     Relation<CharacterJointBird> cjb;
     Relation<BirdTargetCharacter> targets;
     Relation<CharacterShotDart> csd;
+    brac::Stopwatch watch{false};
 
     Members(SpaceTime & st) : Impl{st} { }
 
@@ -344,6 +345,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         m->rem_chars = CHARACTERS;
         m->back->setY(top - 0.8);
         m->restart->setY(top - 0.8);
+        // Temporary
+        m->playerStats.characters = CHARACTERS;
+        m->playerStats.birds = BIRDS;
 
         cpShapeSetCollisionType(&*m->ground, ct_ground);
 
@@ -448,6 +452,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 cjb.b->dropCharacter();
                 cjb.c->rescue();
                 m->cjb.erase(cjb);
+                m->score += SCORE_BIRD_KILLED;
+            } else {
+                m->score += SCORE_CHAR_RESCUED;
             }
             
             bird.setAngle(0);
@@ -546,6 +553,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     m->onCollision([=](BirdImpl & bird, NoActor<ct_startle> &) {
         if (!m->started) {
+            m->watch.start();
             for (auto & c : m->actors<CharacterImpl>()) c.startle();
             m->started = true;
         }
@@ -593,8 +601,14 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 void Game::gameOver(bool passed) {
     m->tick.reset();
     m->level_passed = passed;
+    m->watch.stop();
+    if (passed) {
+        m->playerStats.time = m->watch.time();
+        m->playerStats.remCharacters = m->rem_chars;
+        m->score += m->rem_chars * SCORE_CHAR_SURVIVED;
     for (auto & c : m->actors<CharacterImpl>()) {
         archiveCharacterStats(c.stats);
+        }
     }
     end();
 }
@@ -650,6 +664,7 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
                             self->m->csd.insert(CharacterShotDart{character, &dart});
                             character->shoot();
                             ++self->m->playerStats.darts;
+                            self->m->score += SCORE_DART_FIRED;
                         }
                     }
                 }
