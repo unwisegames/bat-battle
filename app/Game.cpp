@@ -606,8 +606,8 @@ void Game::gameOver(bool passed) {
         m->playerStats.time = m->watch.time();
         m->playerStats.remCharacters = m->rem_chars;
         m->score += m->rem_chars * SCORE_CHAR_SURVIVED;
-    for (auto & c : m->actors<CharacterImpl>()) {
-        archiveCharacterStats(c.stats);
+        for (auto & c : m->actors<CharacterImpl>()) {
+            archiveCharacterStats(c.stats);
         }
     }
     end();
@@ -672,10 +672,14 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
 
             virtual void moved(vec2 const & p, bool) {
                 if (auto self = weak_self.lock()) {
-                    auto v = first_p - p;
-                    character->setState(Character::State::aim);
-                    if (float s = length(v)) {
-                        character->aim((14 + 2 * s) / s * v);
+                    if (self->m->isCaptive(*character)) {
+                        return;
+                    } else {
+                        auto v = first_p - p;
+                        character->setState(Character::State::aim);
+                        if (float s = length(v)) {
+                            character->aim((14 + 2 * s) / s * v);
+                        }
                     }
                 }
             }
