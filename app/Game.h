@@ -60,6 +60,8 @@ struct Bird : brac::Actor {
 
 struct Dart : brac::Actor { };
 
+struct PersonalSpace : brac::Actor { };
+
 struct CharacterStats {
     brac::SpriteDef mugshot;
     int dartsFired = 0;

@@ -1,5 +1,6 @@
 #include "Menu.h"
 #include "atlas.sprites.h"
+#include "bats.sprites.h"
 #include <bricabrac/Game/Bragging.h>
 #include <bricabrac/Utility/UrlOpener.h>
 
@@ -16,8 +17,12 @@ bool Menu::onUpdate(float dt) { return true; }
 
 void Menu::onDraw() {
     SpriteProgram::draw(atlas.title, pmv() * mat4::translate({0, 1.7, 0}) * mat4::scale(1.8));
+    //SpriteProgram::draw(atlas2.title, pmv() * mat4::translate({0, 1.7, 0}) * mat4::scale(1));
+    //SpriteProgram::draw(bats.wings, pmv() * mat4::translate({0, 0, 0}) * mat4::scale(1));
 
-    play      ->draw(pmv());
+    play        ->draw(pmv());
+    gamecenter  ->draw(pmv());
+    twitter     ->draw(pmv());
 }
 
 void Menu::onResize(brac::vec2 const & size) {
@@ -25,7 +30,7 @@ void Menu::onResize(brac::vec2 const & size) {
 }
 
 std::unique_ptr<TouchHandler> Menu::onTouch(vec2 const & worldPos, float) {
-    if (auto handler = Button::handleTouch(worldPos, {play})) {
+    if (auto handler = Button::handleTouch(worldPos, {play, gamecenter, twitter})) {
         return handler;
     }
     return TouchHandler::absorb();

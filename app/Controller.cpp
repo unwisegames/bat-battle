@@ -9,6 +9,7 @@
 #include "brag.h"
 
 #include <bricabrac/Data/Persistent.h>
+#include <bricabrac/Utility/UrlOpener.h>
 
 #include <iostream>
 
@@ -133,6 +134,13 @@ void Controller::newGame(GameMode mode, int level) {
         auto menu = emplaceController<Menu>();
 
         menu->play->clicked += newGame(m_play, *m->highestCompletedLevel + 1);
+
+        menu->gamecenter->clicked += [=]{
+            presentBragUI();
+        };
+        menu->twitter->clicked += [=]{
+            UrlOpener::open("http://www.twitter.com/UnwiseGames");
+        };
     };
 
     state.back->clicked += [=] {

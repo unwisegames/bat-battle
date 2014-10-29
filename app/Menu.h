@@ -5,6 +5,7 @@
 #include "Game.h"
 #include "UI.h"
 #include "atlas.sprites.h"
+#include "atlas2.sprites.h"
 
 #include <memory>
 
@@ -13,7 +14,9 @@ public:
     bool newGame = false;
     GameMode mode = m_menu;
 
-    std::shared_ptr<Button> play     = makeButton(atlas.play,     { 0, -1.5 });
+    std::shared_ptr<Button> play        = makeButton(atlas.play,        { 0, -1.5 });
+    std::shared_ptr<Button> gamecenter  = makeButton(atlas2.gamecenter, { -2.5, -1.5 });
+    std::shared_ptr<Button> twitter     = makeButton(atlas2.twitter,    { 2.5, -1.5 });
 
     Menu();
 
