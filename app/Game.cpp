@@ -23,7 +23,7 @@ enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_
 
 struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
     PersonalSpaceImpl(cpSpace * space, vec2 const pos)
-    : BodyShapes{space, newBody(1, INFINITY, pos), newCircleShape(1), CP_NO_GROUP, l_halo}
+    : BodyShapes{space, newBody(1, INFINITY, pos), newCircleShape(0.8), CP_NO_GROUP, l_halo}
     {
         for (auto & shape : shapes()) {
             cpShapeSetElasticity(&*shape, 0);
@@ -83,6 +83,7 @@ struct CharacterImpl : BodyShapes<Character> {
             switch (state()) {
                 case Character::State::reloading:
                     setState(Character::State::ready);
+                    setVel({0, 2});
                     break;
                 case Character::State::shooting:
                     dontAim();
@@ -133,12 +134,12 @@ struct CharacterImpl : BodyShapes<Character> {
         if (state() != Character::State::dead) {
             setAngle(0);
             setState(Character::State::celebrating);
-            setVel({0, rand<float>(1.5, 3)});
+            setVel({0, rand<float>(3, 4.5)});
         }
     }
 
     void startle() {
-        setVel({0, 1.5});
+        setVel({0, 3});
         setState(Character::State::startled);
     }
 };
@@ -574,7 +575,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     targetCharacter(character);
                     break;
                 case Character::State::celebrating:
-                    character.setVel({0, rand<float>(1.5, 3)});
+                    character.setVel({0, rand<float>(3, 4.5)});
+                    break;
+                case Character::State::ready:
+                    character.setVel({0, 2});
                     break;
                 case Character::State::dead:
                     if (!m->isCaptive(character)) {
