@@ -8,6 +8,7 @@ def ffl(points, interval, **kwargs):
 def bat(points):
     return [
         ffl(points, 0.15),       # side
+        #ffl(points, 0.15, X=(-1, 0)),       # side
         ffl([(1.23, 0.65), (3.9, 0.65), (6.05, 0.42), (3.9, 0.65)], 0.15), # front
         ffl([(1.23, 3.7), (3.82, 3.7), (6.2, 3.55), (3.82, 3.7)], 0.15), # rear
         ffl([(10.8, 0.9), (10.8, 2.45), (10.7, 4), (11.1, 5.55)], 0.15), # puff
