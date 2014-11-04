@@ -317,7 +317,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     auto removeCharacter = [=](CharacterImpl & c) {
         // remove PersonalSpaceImpl
-        auto matching = from(m->cps) >> mutable_ref() >> where([&](auto && cps) { return cps.get().c == &c; });
+        auto matching = from(m->cps) >> ref() >> where([&](auto && cps) { return cps.get().c == &c; });
         if (matching >> any()) {
             auto & cps = (matching >> first()).get();
             m->removeWhenSpaceUnlocked(*cps.ps);
@@ -331,8 +331,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     auto newTarget = [=](BirdImpl & b) {
         m->targets >> removeIf([&](auto && target) { return target.b == &b; });
 
-        auto available = (from(m->actors<CharacterImpl>())
-                          >> mutable_ref()
+        auto available = (from(m->actors<CharacterImpl>()) >> mutable_ref()
                           >> where([&](auto &&c) { return m->isKidnappable(c); }));
 
         if (available >> any()) {
@@ -361,8 +360,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     // send random birds after character
     auto targetCharacter = [=](CharacterImpl & c) {
-        auto available = (from(m->actors<BirdImpl>())
-                          >> mutable_ref()
+        auto available = (from(m->actors<BirdImpl>()) >> mutable_ref()
                           >> where([&](BirdImpl const & b) { return !m->hasCaptive(b) && b.pos().y > ATTACK_LINE_Y && b.isFlying(); }));
         if (available >> any()) {
             // send first available bird after c for now
@@ -483,8 +481,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             bird.setState(Bird::State::dying);
 
             // Score kill against character
-            auto shooter = (from(m->actors<CharacterImpl>())
-                            >> mutable_ref()
+            auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
                             >> where([&](auto && c) { return m->firedDart(c, dart); }));
             if (shooter >> any()) {
                 auto & c = (shooter >> first()).get();
@@ -538,8 +535,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     m->onCollision([=](DartImpl & dart, CharacterImpl & character, cpArbiter * arb) {
         if (dart.active) {
             // Score friendly fire against character
-            auto shooter = (from(m->actors<CharacterImpl>())
-                            >> mutable_ref()
+            auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
                             >> where([&](auto && c) { return m->firedDart(c, dart); }));
             if (shooter >> any()) {
                 auto & c = (shooter >> first()).get();
@@ -602,7 +598,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     });
 
     m->onCollision([=](BirdImpl & bird, NoActor<ct_attack> &) {
-        if (!(from(m->targets) >> any([&](BirdTargetCharacter const & t) { return t.b == &bird; })) &&
+        if (!(from(m->targets) >> any([&](auto && t) { return t.b == &bird; })) &&
             !m->hasCaptive(bird) &&
             bird.state() != Bird::State::dying) {
             newTarget(bird);
@@ -619,7 +615,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     m->onCollision([=](PersonalSpaceImpl & ps1, PersonalSpaceImpl & ps2, cpArbiter *) {
         auto whosePersonalSpace = [=](PersonalSpaceImpl & ps) {
-            auto matching1 = from(m->cps) >> mutable_ref() >> where([&](CharacterPersonalSpace const & cps) { return cps.ps == &ps; });
+            auto matching1 = from(m->cps) >> ref() >> where([&](auto && cps) { return cps.get().ps == &ps; });
             auto & cps1 = (matching1 >> first()).get();
             return cps1.c;
         };
@@ -628,17 +624,17 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         auto c2 = whosePersonalSpace(ps2);
 
         // return false if either character is currently kidnapped
-        return !((from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == c1; }))
-                 || (from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == c2; })));
+        return !((from(m->cjb) >> any([&](auto && cjb) { return cjb.c == c1; }))
+                 || (from(m->cjb) >> any([&](auto && cjb) { return cjb.c == c2; })));
     });
 
     m->onCollision([=](BirdImpl & bird, NoActor<ct_abyss> &, cpArbiter * arb) {
         if (cpArbiterIsFirstContact(arb)) {
-            auto matching = from(m->cjb) >> ref() >> where([&](CharacterJointBird const & cjb) { return cjb.b == &bird; });
+            auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });
             if (matching >> any()) {
                 auto & cjb = (matching >> first()).get();
                 m->cjb.erase(cjb);
-                //m->removeWhenSpaceUnlockedIf(from (m->actors<CharacterImpl>()) >> where([&](CharacterImpl const & c) { return &c == cjb.c; }));
+                //m->removeWhenSpaceUnlockedIf(from (m->actors<CharacterImpl>()) >> where([&](auto && c) { return &c == cjb.c; }));
                 for (auto & c : m->actors<CharacterImpl>()) {
                     if (&c == cjb.c) {
                         removeCharacter(c);
