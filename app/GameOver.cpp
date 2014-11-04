@@ -12,7 +12,7 @@ using namespace brac;
 #include <bricabrac/Shader/LoadShaders.h>
 
 GameOver::GameOver(GameMode m, int level, bool passed, size_t score, size_t best, PlayerStats ps, std::vector<CharacterStats> cs)
-                    : score_(score), best_(best), passed_(passed), level_(level), ps_(ps), cs_(cs) {
+: score_(score), best_(best), passed_(passed), level_(level), ps_(ps), cs_(cs) {
     back        ->clicked += [=]{ pop(); };
     restart     ->clicked += [=]{ pop(); };
     next        ->clicked += [=]{ pop(); };
@@ -28,7 +28,7 @@ GameOver::GameOver(GameMode m, int level, bool passed, size_t score, size_t best
 void GameOver::awardManOfMatch() {
     auto i = 0;
     auto max = 0;
-    for (auto &c : cs_) {
+    for (auto & c : cs_) {
         if (c.score() > max) {
             max = c.score();
             mom_ = i;
@@ -38,10 +38,12 @@ void GameOver::awardManOfMatch() {
 }
 
 void GameOver::formatTime() {
-    auto mins = int(ps_.time) / 60;
-    auto secs = int(ps_.time) % 60;
+    int mins = int(ps_.time) / 60;
+    int secs = int(ps_.time) % 60;
 
-    formatted_time_ = std::to_string(mins) + ":" + std::to_string(secs);
+    char buf[6];
+    snprintf(buf, sizeof(buf), "%02d:%02d", mins, secs);
+    formatted_time_ = buf;
 }
 
 bool GameOver::onUpdate(float dt) { return true; }
@@ -62,10 +64,6 @@ void GameOver::onDraw() {
         SpriteProgram::drawText(text, font.glyphs, align, pmv() * mat4::translate({pos, 0}) * mat4::scale(scale), spacing);
     };
 
-    auto s = [=](int v) {
-        return std::to_string(v);
-    };
-
     if (passed_) {
         SpriteProgram::draw(atlas2.passed, pmv() * mat4::scale(0.8) * mat4::translate({0, 3.3, 0}));
 
@@ -75,6 +73,10 @@ void GameOver::onDraw() {
 
         drawHeaderText("SCORE", {-2.35, 1.45}, 0.3, -0.15);
         drawValueText(std::to_string(score_), {-2.35, 0.95}, 0.3, -0.1);
+
+        auto s = [=](auto v) {
+            return std::to_string(v);
+        };
 
         drawHeaderText("STATS", {-2.35, -0}, 0.3, -0.15);
         SpriteProgram::draw(character.mugshot,  pmv() * mat4::translate({-3.4, -0.37, 0})    * mat4::scale(0.5));

@@ -86,7 +86,7 @@ struct PlayerStats {
     size_t score = 0;
     int darts = 0;
     int kills = 0;
-    int remCharacters = 0;
+    size_t remCharacters = 0;
     float time = 0;
 };
 

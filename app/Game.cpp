@@ -291,23 +291,23 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
 
     bool isKidnappable(CharacterImpl const & c) {
         return (c.state() != Character::State::rescued &&
-                !(from(cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == &c; })));
+                !(from(cjb) >> any([&](auto && cjb) { return cjb.c == &c; })));
     }
 
     bool isBeingTargeted(CharacterImpl const & c) {
-        return (from(targets) >> any([&](BirdTargetCharacter const & t) { return t.c == &c; }));
+        return (from(targets) >> any([&](auto && t) { return t.c == &c; }));
     }
 
     bool hasCaptive(BirdImpl const & b) {
-        return (from(cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.b == &b; }));
+        return (from(cjb) >> any([&](auto && cjb) { return cjb.b == &b; }));
     }
 
     bool isCaptive(CharacterImpl const & c) {
-        return (from(cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.c == &c; }));
+        return (from(cjb) >> any([&](auto && cjb) { return cjb.c == &c; }));
     }
 
     bool firedDart(CharacterImpl const & c, DartImpl const & d) {
-        return (from(csd) >> any([&](CharacterShotDart const & csd) { return csd.c == &c && csd.d == &d; }));
+        return (from(csd) >> any([&](auto && csd) { return csd.c == &c && csd.d == &d; }));
     }
 };
 
@@ -317,26 +317,26 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     auto removeCharacter = [=](CharacterImpl & c) {
         // remove PersonalSpaceImpl
-        auto matching = from(m->cps) >> mutable_ref() >> where([&](CharacterPersonalSpace const & cps) { return cps.c == &c; });
+        auto matching = from(m->cps) >> mutable_ref() >> where([&](auto && cps) { return cps.get().c == &c; });
         if (matching >> any()) {
             auto & cps = (matching >> first()).get();
             m->removeWhenSpaceUnlocked(*cps.ps);
         }
-        m->cps >> removeIf([&](CharacterPersonalSpace const & cps) { return cps.c == &c; });
+        m->cps >> removeIf([&](auto && cps) { return cps.c == &c; });
 
         archiveCharacterStats(c.stats);
         m->removeWhenSpaceUnlocked(c);
     };
 
     auto newTarget = [=](BirdImpl & b) {
-        m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &b; });
+        m->targets >> removeIf([&](auto && target) { return target.b == &b; });
 
         auto available = (from(m->actors<CharacterImpl>())
                           >> mutable_ref()
-                          >> where([&](CharacterImpl const & c) { return m->isKidnappable(c); }));
+                          >> where([&](auto &&c) { return m->isKidnappable(c); }));
 
         if (available >> any()) {
-            auto not_targeted = available >> where([&](CharacterImpl const & c) { return !m->isBeingTargeted(c); });
+            auto not_targeted = available >> where([&](auto && c) { return !m->isBeingTargeted(c); });
             if (not_targeted >> any()) {
                 // get first untargeted character
                 auto & c = (not_targeted >> first()).get();
@@ -345,10 +345,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             } else {
                 // otherwise pick any available target at random
                 int i = 1; auto r = rand<int>(1, int(available >> count()));
-                available >> for_each([&](CharacterImpl & c) {
+                available >> for_each([&](auto && c) {
                     if (i == r) {
-                        m->targets.insert(BirdTargetCharacter{&b, &c});
-                        b.setDesiredPos(c.pos());
+                        m->targets.insert(BirdTargetCharacter{&b, &c.get()});
+                        b.setDesiredPos(c.get().pos());
                     }
                     ++i;
                 });
@@ -367,7 +367,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         if (available >> any()) {
             // send first available bird after c for now
             auto & b = (available >> first()).get();
-            m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &b; });
+            m->targets >> removeIf([&](auto && target) { return target.b == &b; });
             m->targets.insert(BirdTargetCharacter{&b, &c});
             b.setDesiredPos(c.pos());
         }
@@ -422,7 +422,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         m->tick.reset(new Ticker{BIRDFREQUENCY, [=]{
             delay(rand<float>(0, 1), [&]{
                 if (m->created_birds < int(BIRDS)) {
-                    if (from(m->actors<CharacterImpl>()) >> any([&](CharacterImpl const & c) { return m->isKidnappable(c); })) {
+                    if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
                         createBird();
                         ++m->created_birds;
                     }
@@ -438,11 +438,11 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             return false;
         }
 
-        if (!(from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.b == &bird; }))) {
+        if (!(from(m->cjb) >> any([&](auto && cjb) { return cjb.b == &bird; }))) {
             character.kidnap();
 
             m->cjb.insert(CharacterJointBird{&character, bird.grabCharacter(*character.body()), &bird});
-            m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &bird; });
+            m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
 
             vec2 p = {rand<float>(-10, 10), rand<float>(top, top + 1)};
             bird.escapeVel = unit(p - bird.pos());
@@ -450,13 +450,13 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
 
             // send other birds after new target
-            from(m->targets) >> for_each([&](BirdTargetCharacter const & targets) {
+            from(m->targets) >> for_each([&](auto && targets) {
                 if (targets.c == &character && targets.b != &bird && targets.b->isFlying()) {
                     if (targets.b->pos().y > ATTACK_LINE_Y) {
                         newTarget(*targets.b);
                     } else {
                         // flying too low to target new character
-                        m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == targets.b; });
+                        m->targets >> removeIf([&](auto && target) { return target.b == targets.b; });
                         vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
                         targets.b->setDesiredPos(atp);
                     }
@@ -479,23 +479,23 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     m->onPostSolve([=](DartImpl & dart, BirdImpl & bird, cpArbiter * arb) {
         if (dart.active) {
-            m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &bird; });
+            m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
             bird.setState(Bird::State::dying);
 
             // Score kill against character
             auto shooter = (from(m->actors<CharacterImpl>())
                             >> mutable_ref()
-                            >> where([&](CharacterImpl const & c) { return m->firedDart(c, dart); }));
+                            >> where([&](auto && c) { return m->firedDart(c, dart); }));
             if (shooter >> any()) {
                 auto & c = (shooter >> first()).get();
                 ++c.stats.birdsKilled;
-                if (from(m->cjb) >> any([&](CharacterJointBird const & cjb) { return cjb.b == &bird; })) {
+                if (from(m->cjb) >> any([&](auto && cjb) { return cjb.b == &bird; })) {
                     ++c.stats.rescues;
                 }
             }
 
             // free captive, if necessary
-            auto matching = from(m->cjb) >> ref() >> where([&](CharacterJointBird const & cjb) { return cjb.b == &bird; });
+            auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });
             if (matching >> any()) {
                 auto & cjb = (matching >> first()).get();
                 cjb.b->dropCharacter();
@@ -511,7 +511,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             cpBodySetAngVel(bird.body(), 0);
             dart.setVel({0, 0});
 
-            m->csd >> removeIf([&](CharacterShotDart const & csd) { return csd.d == &dart; });
+            m->csd >> removeIf([&](auto && csd) { return csd.d == &dart; });
             m->removeWhenSpaceUnlocked(dart);
             --m->rem_birds;
             ++m->playerStats.kills;
@@ -540,13 +540,13 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             // Score friendly fire against character
             auto shooter = (from(m->actors<CharacterImpl>())
                             >> mutable_ref()
-                            >> where([&](CharacterImpl const & c) { return m->firedDart(c, dart); }));
+                            >> where([&](auto && c) { return m->firedDart(c, dart); }));
             if (shooter >> any()) {
                 auto & c = (shooter >> first()).get();
                 ++c.stats.friendlies;
             }
 
-            m->csd >> removeIf([&](CharacterShotDart const & csd) { return csd.d == &dart; });
+            m->csd >> removeIf([&](auto && csd) { return csd.d == &dart; });
             m->removeWhenSpaceUnlocked(dart);
 
             if (character.state() != Character::State::dead) {
@@ -650,7 +650,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                         }
                     }
                 }
-                m->targets >> removeIf([&](BirdTargetCharacter const & target) { return target.b == &bird; });
+                m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
                 m->removeWhenSpaceUnlocked(bird);
                 --m->created_birds; // bird will be replaced
             } else {
