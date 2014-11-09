@@ -10,6 +10,7 @@
 #include <bricabrac/Logging/Logging.h>
 #include <bricabrac/Data/Relation.h>
 
+#include <math.h>
 #include <unordered_set>
 
 using namespace brac;
@@ -155,11 +156,11 @@ struct BirdImpl : BodyShapes<Bird> {
     BirdType bird_type;
     int resilience;
 
-    BirdImpl(cpSpace * space, int type, vec2 const & pos)
+    BirdImpl(cpSpace * space, BirdType type, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_bird, l_play}
     {
-        bird_type = BirdType(type);
-        resilience = type;
+        bird_type = type;
+        resilience = int(type);
 
         setForce({0, -WORLD_GRAVITY});
     }
@@ -295,13 +296,15 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     ShapePtr startleLine;
     ShapePtr lbarrier{segmentShape({-9, 2}, {-9, 2.5})};
     ShapePtr rbarrier{segmentShape({9, 2}, {9, 2.5})};
-    size_t created_birds = 0;
+    size_t created_grey_bats = 0;
+    size_t created_yellow_bats = 0;
     std::unique_ptr<Ticker> tick;
     Relation<CharacterJointBird> cjb;
     Relation<BirdTargetCharacter> targets;
     Relation<CharacterShotDart> csd;
     Relation<CharacterPersonalSpace> cps;
     brac::Stopwatch watch{false};
+    GameParams params;
 
     Members(SpaceTime & st) : Impl{st} { }
 
@@ -330,6 +333,53 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
 Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, m{new Members{st}} {
     m->mode = mode;
     m->level = level;
+
+    auto generateLevel = [=]() {
+        /*
+         Num grey bats
+         Num yellow bats
+         Bird frequency
+         Num characters
+         Bat speed
+         Level increment value
+        */
+        float GREY_BAT_WORTH = 0.1;
+        float YELLOW_BAT_WORTH = 0.2;
+        float CHARACTER_WORTH = -1;
+
+        int char_max = 8;
+        int grey_bat_min = 1; //floor(float(m->level) / GREY_BAT_WORTH + (CHARACTER_WORTH));
+        int grey_bat_max = ceil((m->level + 1) / GREY_BAT_WORTH - (CHARACTER_WORTH * char_max));
+        int yellow_bat_min = 0;
+        int yellow_bat_max = ceil((m->level + 1) / YELLOW_BAT_WORTH - (CHARACTER_WORTH * char_max));
+
+        float difficulty = 0;
+        do {
+            m->params.grey_bats = rand<int>(grey_bat_min, grey_bat_max);
+            m->params.yellow_bats = rand<int>(yellow_bat_min, yellow_bat_max);
+            m->params.characters = rand<int>(1, char_max);
+
+            difficulty = float(m->params.grey_bats)     * GREY_BAT_WORTH
+                        + float(m->params.yellow_bats)  * YELLOW_BAT_WORTH
+                        + float(m->params.characters)   * CHARACTER_WORTH;
+
+            if (difficulty < level) {
+                grey_bat_min    = m->params.grey_bats;
+                yellow_bat_min  = m->params.yellow_bats;
+            } else if (difficulty > level + 1) {
+                grey_bat_max    = m->params.grey_bats;
+                yellow_bat_max  = m->params.yellow_bats;
+            }
+            std::cerr << level << "\n";
+            std::cerr << "birds: " << m->params.grey_bats << "|" << m->params.yellow_bats << " characters: " << m->params.characters << " diff: " << difficulty << "\n";
+        } while (difficulty < level || difficulty > level + 1);
+
+        m->playerStats.characters   = m->params.characters;
+        m->playerStats.birds        = m->params.grey_bats + m->params.yellow_bats;
+        m->rem_grey_bats            = m->params.grey_bats;
+        m->rem_yellow_bats          = m->params.yellow_bats;
+        m->rem_chars                = m->params.characters;
+    };
 
     auto removeCharacter = [=](CharacterImpl & c) {
         // remove PersonalSpaceImpl
@@ -396,13 +446,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         m->abyssWalls[1] = wall({10,  top}, {10,  -10});  // right
         m->abyssWalls[2] = wall({-10, top}, {10,  top});  // top
         m->startleLine = m->sensor(m->segmentShape({-10, top - 1}, {10, top - 1}), ct_startle);
-        m->rem_birds = BIRDS;
-        m->rem_chars = CHARACTERS;
         m->back->setY(top - 0.8);
         m->restart->setY(top - 0.8);
-        // Temporary
-        m->playerStats.characters = CHARACTERS;
-        m->playerStats.birds = BIRDS;
+
+        generateLevel();
 
         cpShapeSetCollisionType(&*m->ground, ct_ground);
         cpShapeSetFriction(&*m->ground, 1);
@@ -416,8 +463,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
         auto createCharacters = [=]{
             float min = -9;
-            for (int i = 0; i < CHARACTERS; ++i) {
-                float max = min + (18 / CHARACTERS);
+            for (int i = 0; i < m->params.characters; ++i) {
+                float max = min + (18 / m->params.characters);
                 vec2 v{rand<float>(min + 0.5, max - 0.5), 2.3};
                 createCharacter(v);
                 min = max;
@@ -425,23 +472,35 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             for (auto & c : m->actors<CharacterImpl>()) c.initState();
         };
 
-        auto createBird = [=]{
-            auto & b = m->emplace<BirdImpl>(rand<int>(0, 1), vec2{rand<float>(-10, 10), rand<float>(top, top - 1)});
+        auto createBird = [=](BirdType type){
+            auto & b = m->emplace<BirdImpl>(type, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)});
             newTarget(b);
+            if (type == bt_grey) ++m->created_grey_bats;
+            else if (type == bt_yellow) ++m->created_yellow_bats;
         };
 
         createCharacters();
 
         // create birds
-        m->tick.reset(new Ticker{BIRDFREQUENCY, [=]{
+        m->tick.reset(new Ticker{m->params.bird_freq, [=]{
             delay(rand<float>(0, 1), [&]{
-                if (m->created_birds < int(BIRDS)) {
+                if (m->created_grey_bats < m->params.grey_bats || m->created_yellow_bats < m->params.yellow_bats) {
                     if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
-                        createBird();
-                        ++m->created_birds;
+                        BirdType bt;
+                        if (m->created_grey_bats < m->params.grey_bats && m->created_yellow_bats < m->params.yellow_bats) {
+                            // create either
+                            bt = randomChoice({bt_grey, bt_yellow});
+                        } else {
+                            if (m->created_grey_bats < m->params.grey_bats) {
+                                // create grey bat
+                                bt = bt_grey;
+                            } else if (m->created_yellow_bats < m->params.yellow_bats) {
+                                // create yellow bat
+                                bt = bt_yellow;
+                            }
+                        }
+                        createBird(bt);
                     }
-                } else {
-                //    m->tick.reset();
                 }
             }).cancel(destroyed);
         }});
@@ -535,10 +594,14 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 cpBodySetAngVel(bird.body(), 0);
                 dart.setVel({0, 0});
 
-                --m->rem_birds;
+                if (bird.bird_type == bt_grey) {
+                    --m->rem_grey_bats;
+                } else if (bird.bird_type == bt_yellow) {
+                    --m->rem_yellow_bats;
+                }
                 ++m->playerStats.kills;
 
-                if (m->rem_birds == 0) {
+                if (m->rem_grey_bats == 0 && m->rem_yellow_bats == 0) {
                     for (auto & c : m->actors<CharacterImpl>()) {
                         c.celebrate();
                     }
@@ -658,6 +721,14 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     });
 
     m->onCollision([=](BirdImpl & bird, NoActor<ct_abyss> &, cpArbiter * arb) {
+        auto forceBirdReplace = [&] {
+            if (bird.bird_type == bt_grey) {
+                --m->created_grey_bats;
+            } else if (bird.bird_type == bt_yellow) {
+                --m->created_yellow_bats;
+            }
+        };
+
         if (cpArbiterIsFirstContact(arb)) {
             auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });
             if (matching >> any()) {
@@ -677,10 +748,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 }
                 m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
                 m->removeWhenSpaceUnlocked(bird);
-                --m->created_birds; // bird will be replaced
+                forceBirdReplace();
             } else {
                 if (bird.fromWhence) {
-                    --m->created_birds;
+                    forceBirdReplace();
                     m->removeWhenSpaceUnlocked(bird);
                 }
             }

@@ -24,6 +24,14 @@ constexpr int   SCORE_BIRD_KILLED = 100;
 constexpr int   SCORE_CHAR_RESCUED = 150;
 constexpr int   SCORE_CHAR_SURVIVED = 1000;
 
+struct GameParams {
+    int characters;
+    int grey_bats;
+    int yellow_bats;
+    float bird_freq = 3.5;
+    float bird_speed = 1;
+};
+
 struct Character : brac::Actor {
     enum State {
         biggrin,
@@ -105,7 +113,8 @@ public:
         int level;
         std::shared_ptr<Button> back{std::make_shared<Button>(atlas.back, brac::vec2{-9.2, 10}, 1)};
         std::shared_ptr<Button> restart{std::make_shared<Button>(atlas.restart, brac::vec2{-7.9, 10}, 1)};
-        size_t rem_birds;
+        size_t rem_grey_bats;
+        size_t rem_yellow_bats;
         size_t rem_chars;
         PlayerStats playerStats;
         std::vector<CharacterStats> characterStats;
