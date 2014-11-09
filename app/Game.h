@@ -65,6 +65,7 @@ struct PersonalSpace : brac::Actor { };
 struct CharacterStats {
     brac::SpriteDef mugshot;
     int dartsFired = 0;
+    int dartsHit = 0;
     int birdsKilled = 0;
     int friendlies = 0;
     int rescues = 0;
@@ -85,6 +86,7 @@ struct PlayerStats {
     // live stats
     size_t score = 0;
     int darts = 0;
+    int hits = 0;
     int kills = 0;
     size_t remCharacters = 0;
     float time = 0;

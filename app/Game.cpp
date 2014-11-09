@@ -21,6 +21,8 @@ enum Layer : cpLayers { l_all = 1<<0, l_character = 1<<1, l_halo = 1<<2, l_play 
 
 enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_attack, ct_startle };
 
+enum BirdType { bt_grey = 0, bt_yellow = 1 };
+
 struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
     PersonalSpaceImpl(cpSpace * space, vec2 const pos)
     : BodyShapes{space, newBody(1, INFINITY, pos), newCircleShape(0.8), CP_NO_GROUP, l_halo}
@@ -150,11 +152,25 @@ struct BirdImpl : BodyShapes<Bird> {
     bool fromWhence = false;
     vec2 escapeVel;
     vec2 desired_pos;
+    BirdType bird_type;
+    int resilience;
 
     BirdImpl(cpSpace * space, int type, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_bird, l_play}
     {
+        bird_type = BirdType(type);
+        resilience = type;
+
         setForce({0, -WORLD_GRAVITY});
+    }
+
+    void newFrame(bool loopChanged) override {
+        if (!loopChanged && frame() == 0) {
+            if (isFlying() && bird_type == bt_yellow && resilience == 0) {
+                setVel({0, 0});
+                cpBodyApplyImpulse(body(), to_cpVect({rand<float>(-0.5, 0.5), rand<float>(-0.5, 0.5)}), to_cpVect({0, 0}));
+            }
+        }
     }
 
     void newState(size_t & loop) override {
@@ -163,6 +179,7 @@ struct BirdImpl : BodyShapes<Bird> {
 
     virtual void doUpdate(float) override {
         if (isFlying()) {
+            setAngle(0);
             auto v = unit(vel());
             if (fromWhence && v.y > 0) {
                 setState(Bird::State::rear);
@@ -181,7 +198,6 @@ struct BirdImpl : BodyShapes<Bird> {
             } else {
                 // maintain velocity
                 setVel(escapeVel * BIRD_SPEED);
-                setAngle(0);
             }
         }
     }
@@ -410,7 +426,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         };
 
         auto createBird = [=]{
-            auto & b = m->emplace<BirdImpl>(0, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)});
+            auto & b = m->emplace<BirdImpl>(rand<int>(0, 1), vec2{rand<float>(-10, 10), rand<float>(top, top - 1)});
             newTarget(b);
         };
 
@@ -477,48 +493,61 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     m->onPostSolve([=](DartImpl & dart, BirdImpl & bird, cpArbiter * arb) {
         if (dart.active) {
-            m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
-            bird.setState(Bird::State::dying);
+            ++m->playerStats.hits;
 
-            // Score kill against character
+            // Score hit against character
             auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
                             >> where([&](auto && c) { return m->firedDart(c, dart); }));
             if (shooter >> any()) {
                 auto & c = (shooter >> first()).get();
-                ++c.stats.birdsKilled;
-                if (from(m->cjb) >> any([&](auto && cjb) { return cjb.b == &bird; })) {
-                    ++c.stats.rescues;
+                ++c.stats.dartsHit;
+                if (bird.resilience == 0) {
+                    ++c.stats.birdsKilled;
+                    if (from(m->cjb) >> any([&](auto && cjb) { return cjb.b == &bird; })) {
+                        ++c.stats.rescues;
+                    }
                 }
             }
 
-            // free captive, if necessary
-            auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });
-            if (matching >> any()) {
-                auto & cjb = (matching >> first()).get();
-                cjb.b->dropCharacter();
-                cjb.c->rescue();
-                m->cjb.erase(cjb);
-                m->score += SCORE_BIRD_KILLED;
+            if (bird.resilience > 0) {
+                bird.setAngle(0);
+                bird.setVel({0, 0});
+
+                --bird.resilience;
             } else {
-                m->score += SCORE_CHAR_RESCUED;
+                m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
+                bird.setState(Bird::State::dying);
+
+                // free captive, if necessary
+                auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });
+                if (matching >> any()) {
+                    auto & cjb = (matching >> first()).get();
+                    cjb.b->dropCharacter();
+                    cjb.c->rescue();
+                    m->cjb.erase(cjb);
+                    m->score += SCORE_BIRD_KILLED;
+                } else {
+                    m->score += SCORE_CHAR_RESCUED;
+                }
+                
+                bird.setAngle(0);
+                bird.setVel({0, -3});
+                cpBodySetAngVel(bird.body(), 0);
+                dart.setVel({0, 0});
+
+                --m->rem_birds;
+                ++m->playerStats.kills;
+
+                if (m->rem_birds == 0) {
+                    for (auto & c : m->actors<CharacterImpl>()) {
+                        c.celebrate();
+                    }
+                    delay(4, [=]{ gameOver(true); }).cancel(destroyed);
+                }
             }
-            
-            bird.setAngle(0);
-            bird.setVel({0, -3});
-            cpBodySetAngVel(bird.body(), 0);
-            dart.setVel({0, 0});
 
             m->csd >> removeIf([&](auto && csd) { return csd.d == &dart; });
             m->removeWhenSpaceUnlocked(dart);
-            --m->rem_birds;
-            ++m->playerStats.kills;
-
-            if (m->rem_birds == 0) {
-                for (auto & c : m->actors<CharacterImpl>()) {
-                    c.celebrate();
-                }
-                delay(4, [=]{ gameOver(true); }).cancel(destroyed);
-            }
         }
     });
 
