@@ -210,11 +210,16 @@ void Controller::onDraw() {
         state.back->draw(pmv());
         state.restart->draw(pmv());
 
-        SpriteProgram::drawText(std::to_string(state.rem_grey_bats), font.glyphs, -1, pmv() * mat4::translate({-2, m->top-1, 0}) * mat4::scale(0.5));
-        SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-2.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
+        if (state.level < LEVEL_YELLOW_BATS_INTRODUCED) {
+            SpriteProgram::drawText(std::to_string(state.rem_grey_bats), font.glyphs, -1, pmv() * mat4::translate({0    , m->top-1, 0}) * mat4::scale(0.5));
+            SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-0.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
+        } else {
+            SpriteProgram::drawText(std::to_string(state.rem_grey_bats), font.glyphs, -1, pmv() * mat4::translate({-2, m->top-1, 0}) * mat4::scale(0.5));
+            SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-2.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
 
-        SpriteProgram::drawText(std::to_string(state.rem_yellow_bats), font.glyphs, -1, pmv() * mat4::translate({1.2, m->top-1, 0}) * mat4::scale(0.5));
-        SpriteProgram::draw(atlas.yellowbathead, pmv() * mat4::translate({0.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
+            SpriteProgram::drawText(std::to_string(state.rem_yellow_bats), font.glyphs, -1, pmv() * mat4::translate({1.2, m->top-1, 0}) * mat4::scale(0.5));
+            SpriteProgram::draw(atlas.yellowbathead, pmv() * mat4::translate({0.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
+        }
 
         if (!m->game->state().started) {
             SpriteProgram::drawText("LEVEL " + std::to_string(m->level), font.glyphs, 0, pmv() * mat4::translate({0, m->top - 5, 0}), -0.1);

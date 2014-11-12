@@ -26,7 +26,7 @@ enum BirdType { bt_grey = 0, bt_yellow = 1 };
 
 struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
     PersonalSpaceImpl(cpSpace * space, vec2 const pos)
-    : BodyShapes{space, newBody(1, INFINITY, pos), newCircleShape(0.8), CP_NO_GROUP, l_halo}
+    : BodyShapes{space, newBody(1, INFINITY, pos), newCircleShape(0.6), CP_NO_GROUP, l_halo}
     {
         for (auto & shape : shapes()) {
             cpShapeSetElasticity(&*shape, 0);
@@ -296,6 +296,8 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     ShapePtr startleLine;
     ShapePtr lbarrier{segmentShape({-9, 2}, {-9, 2.5})};
     ShapePtr rbarrier{segmentShape({9, 2}, {9, 2.5})};
+    ShapePtr lslope{segmentShape({-9, 2.5}, {-10, 4})};
+    ShapePtr rslope{segmentShape({9, 2.5}, {10, 4})};
     size_t created_grey_bats = 0;
     size_t created_yellow_bats = 0;
     std::unique_ptr<Ticker> tick;
@@ -335,44 +337,37 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     m->level = level;
 
     auto generateLevel = [=]() {
-        /*
-         Num grey bats
-         Num yellow bats
-         Bird frequency
-         Num characters
-         Bat speed
-         Level increment value
-        */
-        float GREY_BAT_WORTH = 0.1;
-        float YELLOW_BAT_WORTH = 0.2;
-        float CHARACTER_WORTH = -1;
+        float   GREY_BAT_WORTH      = 0.3;
+        float   YELLOW_BAT_WORTH    = 0.5;
+        float   CHARACTER_DEC       = 0.1;
+        int     MIN_CHARACTERS      = 2;
+        int     MAX_CHARACTERS      = 8;
 
-        int char_max = 8;
-        int grey_bat_min = 1; //floor(float(m->level) / GREY_BAT_WORTH + (CHARACTER_WORTH));
-        int grey_bat_max = ceil((m->level + 1) / GREY_BAT_WORTH - (CHARACTER_WORTH * char_max));
-        int yellow_bat_min = 0;
-        int yellow_bat_max = ceil((m->level + 1) / YELLOW_BAT_WORTH - (CHARACTER_WORTH * char_max));
+        int min_gry = 1;
+        int max_gry = ceil((m->level + 1) / GREY_BAT_WORTH);
+        int min_ylw = 0;
+        int max_ylw = level < LEVEL_YELLOW_BATS_INTRODUCED ? 0 : ceil((m->level + 1) / YELLOW_BAT_WORTH);
+
+        float min_diff = level;
+        float max_diff = level + 1;
 
         float difficulty = 0;
         do {
-            m->params.grey_bats = rand<int>(grey_bat_min, grey_bat_max);
-            m->params.yellow_bats = rand<int>(yellow_bat_min, yellow_bat_max);
-            m->params.characters = rand<int>(1, char_max);
+            m->params.grey_bats     = rand<int>(min_gry, max_gry);
+            m->params.yellow_bats   = rand<int>(min_ylw, max_ylw);
+            m->params.characters    = clamp(rand<int>(floor(MAX_CHARACTERS - (level * CHARACTER_DEC)), ceil(MAX_CHARACTERS - (level * CHARACTER_DEC))), MIN_CHARACTERS, MAX_CHARACTERS);
 
             difficulty = float(m->params.grey_bats)     * GREY_BAT_WORTH
-                        + float(m->params.yellow_bats)  * YELLOW_BAT_WORTH
-                        + float(m->params.characters)   * CHARACTER_WORTH;
+                       + float(m->params.yellow_bats)   * YELLOW_BAT_WORTH;
 
-            if (difficulty < level) {
-                grey_bat_min    = m->params.grey_bats;
-                yellow_bat_min  = m->params.yellow_bats;
-            } else if (difficulty > level + 1) {
-                grey_bat_max    = m->params.grey_bats;
-                yellow_bat_max  = m->params.yellow_bats;
+            if (difficulty < min_diff) {
+                min_gry = m->params.grey_bats;
+                min_ylw = m->params.yellow_bats;
+            } else if (difficulty > max_diff) {
+                max_gry = m->params.grey_bats;
+                max_ylw = m->params.yellow_bats;
             }
-            std::cerr << level << "\n";
-            std::cerr << "birds: " << m->params.grey_bats << "|" << m->params.yellow_bats << " characters: " << m->params.characters << " diff: " << difficulty << "\n";
-        } while (difficulty < level || difficulty > level + 1);
+        } while (difficulty < min_diff || difficulty > max_diff);
 
         m->playerStats.characters   = m->params.characters;
         m->playerStats.birds        = m->params.grey_bats + m->params.yellow_bats;
@@ -464,7 +459,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         auto createCharacters = [=]{
             float min = -9;
             for (int i = 0; i < m->params.characters; ++i) {
-                float max = min + (18 / m->params.characters);
+                float max = min + (18.0f / float(m->params.characters));
                 vec2 v{rand<float>(min + 0.5, max - 0.5), 2.3};
                 createCharacter(v);
                 min = max;
