@@ -5,6 +5,7 @@
 #include "atlas.sprites.h"
 #include "Menu.h"
 #include "GameOver.h"
+#include "sounds.h"
 
 #include "brag.h"
 
@@ -25,6 +26,7 @@ struct Controller::Members {
     GameMode mode = m_menu;
     int level = 0;
     float top = 0;
+    sounds audio{0.5, 1};
 
     // Persistent data
     Persistent<int> highestCompletedLevel{"highestCompletedLevel"};
@@ -62,32 +64,16 @@ void Controller::newGame(GameMode mode, int level) {
         //}
     };
     
-    m->game->door_open += [=] {
+    m->game->aim += [=] {
+        m->audio.aim.play();
     };
     
-    m->game->release_ball += [=] {
+    m->game->shoot += [=] {
+        m->audio.shoot.play();
     };
-    
-    m->game->clock_beep += [=] {
-    };
-    
-    m->game->bounced_wall += [=] {
-    };
-    
-    m->game->touched_sides += [=] {
-    };
-    
-    m->game->foul += [=] {
-    };
-    
-    m->game->scored += [=]() {
-        /*size_t score = m->game->state().score;
-        if (score <= 25) {
-            brag::score25(4 * score, []{});
-        }
-        if (score <= 100) {
-            brag::score100(score, []{});
-        }*/
+
+    m->game->shot += [=] {
+        m->audio.shot.play();
     };
 
     m->game->n_for_n += [=](size_t n){

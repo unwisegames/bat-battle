@@ -67,9 +67,11 @@ void GameOver::onDraw() {
     if (passed_) {
         SpriteProgram::draw(atlas2.passed, pmv() * mat4::scale(0.8) * mat4::translate({0, 3.3, 0}));
 
-        SpriteProgram::draw(atlas.box, pmv() * mat4::translate({-2.3, 1.4, 0})      * mat4::scale({1.3, 0.8, 1}));
-        SpriteProgram::draw(atlas.box, pmv() * mat4::translate({1.7, -0.23, 0})     * mat4::scale({1.8, 2.94, 1}));
-        SpriteProgram::draw(atlas.box, pmv() * mat4::translate({-2.3, -0.93, 0})    * mat4::scale({1.3, 2, 1}));
+        for (int i = 0; i < 2; i++) {
+            SpriteProgram::draw(atlas.box, pmv() * mat4::translate({-2.3, 1.4, 0})      * mat4::scale({1.3, 0.8, 1}));
+            SpriteProgram::draw(atlas.box, pmv() * mat4::translate({1.7, -0.23, 0})     * mat4::scale({1.8, 2.94, 1}));
+            SpriteProgram::draw(atlas.box, pmv() * mat4::translate({-2.3, -0.93, 0})    * mat4::scale({1.3, 2, 1}));
+        }
 
         drawHeaderText("SCORE", {-2.35, 1.45}, 0.3, -0.15);
         drawValueText(std::to_string(score_), {-2.35, 0.95}, 0.3, -0.1);

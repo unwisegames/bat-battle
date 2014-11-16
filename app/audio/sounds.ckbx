@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<bank name="sounds" volumeControls="true">
+    <music name="music" source="theme.mp3" />
+    <sound name="aim" source="aim.wav" format="adpcm" pooled="true" />
+    <sound name="spit" source="spit.wav" format="adpcm" pooled="true" />
+    <sound name="shoot" source="shoot.wav" format="adpcm" pooled="true" />
+    <sound name="shot" source="shot.wav" format="adpcm" pooled="true" />
+</bank>

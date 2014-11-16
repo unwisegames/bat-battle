@@ -155,12 +155,14 @@ struct BirdImpl : BodyShapes<Bird> {
     vec2 desired_pos;
     BirdType bird_type;
     int resilience;
+    float speed;
 
-    BirdImpl(cpSpace * space, BirdType type, vec2 const & pos)
+    BirdImpl(cpSpace * space, BirdType type, vec2 const & pos, float sp)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], gr_bird, l_play}
     {
         bird_type = type;
         resilience = int(type);
+        speed = rand<float>(sp - (sp * 0.3), sp + (sp * 0.3));
 
         setForce({0, -WORLD_GRAVITY});
     }
@@ -193,12 +195,12 @@ struct BirdImpl : BodyShapes<Bird> {
             }
 
             if (isFlying() && !hasCaptive) {
-                auto dv = unit(desired_pos - pos()) * BIRD_SPEED - vel();
+                auto dv = unit(desired_pos - pos()) * speed - vel();
                 float epsilon = 0.01;
                 setForce(((length_sq(dv) > epsilon) * F * unit(dv)) + vec2{0, -WORLD_GRAVITY});
             } else {
                 // maintain velocity
-                setVel(escapeVel * BIRD_SPEED);
+                setVel(escapeVel * speed);
             }
         }
     }
@@ -340,8 +342,11 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         float   GREY_BAT_WORTH      = 0.3;
         float   YELLOW_BAT_WORTH    = 0.5;
         float   CHARACTER_DEC       = 0.1;
+        float   BAT_SPEED_INC       = 0.05;
         int     MIN_CHARACTERS      = 2;
         int     MAX_CHARACTERS      = 8;
+        float   MAX_BAT_SPEED       = 3;
+        float   MIN_BAT_SPEED       = 1;
 
         int min_gry = 1;
         int max_gry = ceil((m->level + 1) / GREY_BAT_WORTH);
@@ -356,6 +361,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             m->params.grey_bats     = rand<int>(min_gry, max_gry);
             m->params.yellow_bats   = rand<int>(min_ylw, max_ylw);
             m->params.characters    = clamp(rand<int>(floor(MAX_CHARACTERS - (level * CHARACTER_DEC)), ceil(MAX_CHARACTERS - (level * CHARACTER_DEC))), MIN_CHARACTERS, MAX_CHARACTERS);
+            m->params.bird_speed    = clamp(1 + level * BAT_SPEED_INC, MIN_BAT_SPEED, MAX_BAT_SPEED);
 
             difficulty = float(m->params.grey_bats)     * GREY_BAT_WORTH
                        + float(m->params.yellow_bats)   * YELLOW_BAT_WORTH;
@@ -468,7 +474,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         };
 
         auto createBird = [=](BirdType type){
-            auto & b = m->emplace<BirdImpl>(type, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)});
+            auto & b = m->emplace<BirdImpl>(type, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)}, m->params.bird_speed);
             newTarget(b);
             if (type == bt_grey) ++m->created_grey_bats;
             else if (type == bt_yellow) ++m->created_yellow_bats;
@@ -548,6 +554,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     m->onPostSolve([=](DartImpl & dart, BirdImpl & bird, cpArbiter * arb) {
         if (dart.active) {
             ++m->playerStats.hits;
+            shot();
 
             // Score hit against character
             auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
@@ -821,6 +828,7 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
                             character->shoot();
                             ++self->m->playerStats.darts;
                             self->m->score += SCORE_DART_FIRED;
+                            self->shoot();
                         }
                     }
                 }
@@ -834,6 +842,7 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
                     } else {
                         auto v = first_p - p;
                         character->setState(Character::State::aim);
+                        //self->aim();
                         if (float s = length(v)) {
                             character->aim((14 + 2 * s) / s * v);
                         }
