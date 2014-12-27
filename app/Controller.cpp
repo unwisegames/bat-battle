@@ -265,7 +265,9 @@ void Controller::onDraw() {
 
         if (m->game->state().level_passed) {
             for (auto const & c : m->game->actors<Character>()) {
-                SpriteProgram::drawText(std::to_string(SCORE_CHAR_SURVIVED), font.glyphs, 0, pmv() * mat4::translate({c.pos().x, c.pos().y + float(0.8), 0}) * mat4::scale(0.3), -0.1);
+                if (!c.isDead()) {
+                    SpriteProgram::drawText(std::to_string(SCORE_CHAR_SURVIVED), font.glyphs, 0, pmv() * mat4::translate({c.pos().x, c.pos().y + float(0.8), 0}) * mat4::scale(0.3), -0.1);
+                }
             }
         }
     }

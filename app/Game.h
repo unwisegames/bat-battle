@@ -59,6 +59,7 @@ struct Character : brac::Actor {
 
     virtual bool isAiming() const = 0;
     virtual brac::vec2 const & launchVel() const = 0;
+    virtual bool isDead() const = 0;
 };
 
 struct Bird : brac::Actor {

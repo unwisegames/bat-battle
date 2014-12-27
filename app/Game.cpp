@@ -66,6 +66,10 @@ struct CharacterImpl : BodyShapes<Character> {
         return !!launchVel_ && state() == Character::State::aim;
     }
 
+    virtual bool isDead() const override {
+        return state() == Character::State::dead;
+    }
+
     virtual vec2 const & launchVel() const override {
         return launchVel_;
     }
@@ -121,20 +125,20 @@ struct CharacterImpl : BodyShapes<Character> {
         if (isAiming()) {
             dontAim();
         }
-        if (state() != Character::State::dead) {
+        if (!isDead()) {
             setState(Character::State::yell);
             delay(1, [=]{ setState(Character::State::crying); }).cancel(destroyed);
         }
     }
 
     void rescue() {
-        if (state() != Character::State::dead) {
+        if (!isDead()) {
             setState(Character::State::rescued);
         }
     }
 
     void celebrate() {
-        if (state() != Character::State::dead) {
+        if (!isDead()) {
             setAngle(0);
             setState(Character::State::celebrating);
             setVel({0, rand<float>(6, 8.5)});
@@ -514,7 +518,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
         if (!(from(m->cjb) >> any([&](auto && cjb) { return cjb.b == &bird; }))) {
             character.kidnap();
-            if (character.state() != Character::State::dead) {
+            if (!character.isDead()) {
                 help();
             }
 
@@ -610,7 +614,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
                 if (m->rem_grey_bats == 0 && m->rem_yellow_bats == 0) {
                     for (auto & c : m->actors<CharacterImpl>()) {
-                        if (c.state() != Character::State::dead)
+                        if (!c.isDead())
                             yay();
                         c.celebrate();
                     }
@@ -651,7 +655,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             m->csd >> removeIf([&](auto && csd) { return csd.d == &dart; });
             m->removeWhenSpaceUnlocked(dart);
 
-            if (character.state() != Character::State::dead) {
+            if (!character.isDead()) {
                 die();
                 character.setState(Character::State::dead);
                 --m->rem_chars;
@@ -759,7 +763,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 for (auto & c : m->actors<CharacterImpl>()) {
                     if (&c == cjb.c) {
                         removeCharacter(c);
-                        if (c.state() != Character::State::dead) {
+                        if (!c.isDead()) {
                             --m->rem_chars;
                             if (m->rem_chars == 0) {
                                 delay(2, [=]{ gameOver(false); }).cancel(destroyed);
