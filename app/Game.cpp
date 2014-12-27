@@ -514,6 +514,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
         if (!(from(m->cjb) >> any([&](auto && cjb) { return cjb.b == &bird; }))) {
             character.kidnap();
+            if (character.state() != Character::State::dead) {
+                help();
+            }
 
             m->cjb.insert(CharacterJointBird{&character, bird.grabCharacter(*character.body()), &bird});
             m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
@@ -578,6 +581,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             } else {
                 m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
                 bird.setState(Bird::State::dying);
+
+                delay(0.2, [=]{ pumped(); }).cancel(destroyed);
 
                 // free captive, if necessary
                 auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });

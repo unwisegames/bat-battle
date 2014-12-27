@@ -52,6 +52,7 @@ void Controller::newGame(GameMode mode, int level) {
 
     m->audio.ambience->setLoopCount(-1);
     mode == m_play ? m->audio.ambience->play() : m->audio.ambience->stop();
+    m->audio.tension->stop();
 
     auto & a = m->audio;
     brac::AudioSystem::SoundPool * yays[] = {&a.yay1, &a.yay2, &a.yay3, &a.yay4, &a.yay5, &a.yay6, &a.yay7, &a.yay8, &a.yay9};
@@ -96,6 +97,11 @@ void Controller::newGame(GameMode mode, int level) {
         p->play();
     };
 
+    m->game->pumped += [=] {
+        auto p = randomChoice({&m->audio.comeon, &m->audio.yay7, &m->audio.aha});
+        p->play();
+    };
+
     m->game->tension_start += [=] {
         m->audio.tension->setLoopCount(-1);
         m->audio.tension->play();
@@ -107,6 +113,12 @@ void Controller::newGame(GameMode mode, int level) {
 
     m->game->char_score += [=] {
         m->audio.score.play();
+    };
+
+    m->game->help += [=] {
+        //auto p = randomChoice({&m->audio.help, &m->audio.helpme});
+        //p->play();
+        m->audio.help.play();
     };
 
     m->game->n_for_n += [=](size_t n){

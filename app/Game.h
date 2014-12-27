@@ -133,6 +133,8 @@ public:
     brac::Signal<void()> tension_start;
     brac::Signal<void()> tension_stop;
     brac::Signal<void()> char_score;
+    brac::Signal<void()> pumped;
+    brac::Signal<void()> help;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits
