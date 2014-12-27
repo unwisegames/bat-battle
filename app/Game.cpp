@@ -137,7 +137,7 @@ struct CharacterImpl : BodyShapes<Character> {
         if (state() != Character::State::dead) {
             setAngle(0);
             setState(Character::State::celebrating);
-            setVel({0, rand<float>(3, 4.5)});
+            setVel({0, rand<float>(6, 8.5)});
         }
     }
 
@@ -605,6 +605,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
                 if (m->rem_grey_bats == 0 && m->rem_yellow_bats == 0) {
                     for (auto & c : m->actors<CharacterImpl>()) {
+                        if (c.state() != Character::State::dead)
+                            yay();
                         c.celebrate();
                     }
                     delay(4, [=]{ gameOver(true); }).cancel(destroyed);
@@ -640,6 +642,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             m->removeWhenSpaceUnlocked(dart);
 
             if (character.state() != Character::State::dead) {
+                die();
                 character.setState(Character::State::dead);
                 --m->rem_chars;
                 if (m->rem_chars == 0) {
@@ -665,7 +668,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     targetCharacter(character);
                     break;
                 case Character::State::celebrating:
-                    character.setVel({0, rand<float>(3, 4.5)});
+                    yay();
+                    //character.setVel({0, rand<float>(3, 4.5)});
+                    character.setVel({0, rand<float>(6, 8.5)});
                     break;
                 case Character::State::ready:
                     character.setVel({0, 2});
@@ -702,7 +707,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     m->onCollision([=](BirdImpl & bird, NoActor<ct_startle> &) {
         if (!m->started) {
             m->watch.start();
-            for (auto & c : m->actors<CharacterImpl>()) c.startle();
+            for (auto & c : m->actors<CharacterImpl>()) {
+                //aah();
+                c.startle();
+            }
             m->started = true;
         }
     });

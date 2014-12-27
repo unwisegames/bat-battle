@@ -124,15 +124,12 @@ public:
     brac::Signal<void()> show_menu;
     brac::Signal<void(Character const &, brac::vec2 const & impulse)> bounced;
     brac::Signal<void()> scored;
-    brac::Signal<void()> touched_sides;
-    brac::Signal<void()> door_open;
-    brac::Signal<void()> bounced_wall;
-    brac::Signal<void()> clock_beep;
-    brac::Signal<void()> release_ball;
-    brac::Signal<void()> foul;
     brac::Signal<void()> aim;
     brac::Signal<void()> shoot;
     brac::Signal<void()> shot;
+    brac::Signal<void()> yay;
+    brac::Signal<void()> die;
+    brac::Signal<void()> aah;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits

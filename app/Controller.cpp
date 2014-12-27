@@ -11,6 +11,7 @@
 
 #include <bricabrac/Data/Persistent.h>
 #include <bricabrac/Utility/UrlOpener.h>
+#include <bricabrac/Math/Random.h>
 
 #include <iostream>
 
@@ -49,6 +50,12 @@ void Controller::newGame(GameMode mode, int level) {
 
     auto const & state = m->game->state();
 
+    m->audio.ambience->setLoopCount(-1);
+    mode == m_play ? m->audio.ambience->play() : m->audio.ambience->stop();
+
+    auto & a = m->audio;
+    brac::AudioSystem::SoundPool * yays[] = {&a.yay1, &a.yay2, &a.yay3, &a.yay4, &a.yay5, &a.yay6, &a.yay7, &a.yay8, &a.yay9};
+
     auto newGame = [=](GameMode mode, int level = -1) {
         return [=]{
             m->mode = mode;
@@ -76,6 +83,19 @@ void Controller::newGame(GameMode mode, int level) {
         m->audio.shot.play();
     };
 
+    m->game->die += [=] {
+        m->audio.ooh.play();
+    };
+
+    m->game->aah += [=] {
+        m->audio.aah.play();
+    };
+
+    m->game->yay += [=] {
+        auto p = randomChoice(yays);
+        p->play();
+    };
+
     m->game->n_for_n += [=](size_t n){
         switch (n) {
         }
@@ -86,6 +106,13 @@ void Controller::newGame(GameMode mode, int level) {
     
     m->game->ended += [=] {
         auto const & state = m->game->state();
+
+        m->audio.ambience->stop();
+
+        // stop celebration sounds
+        for (auto y : yays) {
+            y->stop();
+        }
 
         if (state.level_passed && state.level > *m->highestCompletedLevel) {
             m->highestCompletedLevel = state.level;
