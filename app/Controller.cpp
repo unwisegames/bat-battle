@@ -96,6 +96,19 @@ void Controller::newGame(GameMode mode, int level) {
         p->play();
     };
 
+    m->game->tension_start += [=] {
+        m->audio.tension->setLoopCount(-1);
+        m->audio.tension->play();
+    };
+
+    m->game->tension_stop += [=] {
+        m->audio.tension->stop();
+    };
+
+    m->game->char_score += [=] {
+        m->audio.score.play();
+    };
+
     m->game->n_for_n += [=](size_t n){
         switch (n) {
         }
@@ -236,6 +249,12 @@ void Controller::onDraw() {
 
         if (!m->game->state().started) {
             SpriteProgram::drawText("LEVEL " + std::to_string(m->level), font.glyphs, 0, pmv() * mat4::translate({0, m->top - 5, 0}), -0.1);
+        }
+
+        if (m->game->state().level_passed) {
+            for (auto const & c : m->game->actors<Character>()) {
+                SpriteProgram::drawText(std::to_string(SCORE_CHAR_SURVIVED), font.glyphs, 0, pmv() * mat4::translate({c.pos().x, c.pos().y + float(0.8), 0}) * mat4::scale(0.3), -0.1);
+            }
         }
     }
 }

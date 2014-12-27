@@ -609,6 +609,11 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                             yay();
                         c.celebrate();
                     }
+                    tension_stop();
+                    delay(1, [=]{
+                        char_score();
+                        m->level_passed = true;
+                    }).cancel(destroyed);
                     delay(4, [=]{ gameOver(true); }).cancel(destroyed);
                 }
             }
@@ -710,6 +715,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             for (auto & c : m->actors<CharacterImpl>()) {
                 //aah();
                 c.startle();
+                tension_start();
             }
             m->started = true;
         }
@@ -781,6 +787,7 @@ void Game::gameOver(bool passed) {
             archiveCharacterStats(c.stats);
         }
     }
+    tension_stop();
     end();
 }
 

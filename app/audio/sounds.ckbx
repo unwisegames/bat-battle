@@ -2,6 +2,7 @@
 <bank name="sounds" volumeControls="true">
     <music name="music" source="theme.mp3" />
     <music name="ambience" source="ambience.mp3" />
+    <music name="tension" source="tension.mp3" />
     <sound name="aim" source="aim.wav" format="adpcm" pooled="true" />
     <sound name="spit" source="spit.wav" format="adpcm" pooled="true" />
     <sound name="shoot" source="shoot.wav" format="adpcm" pooled="true" />
@@ -16,5 +17,6 @@
     <sound name="yay8" source="yay8.wav" format="adpcm" pooled="true" />
     <sound name="yay9" source="yay9.wav" format="adpcm" pooled="true" />
     <sound name="ooh" source="ooh.wav" format="adpcm" pooled="true" />
-    <sound name="aah" source="aah.wav" format="adpcm" pooled="true"  />
+    <sound name="aah" source="aah.wav" format="adpcm" pooled="true" />
+    <sound name="score" source="success_light_01.wav" format="adpcm" pooled="true" />
 </bank>
