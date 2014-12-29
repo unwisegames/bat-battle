@@ -19,6 +19,7 @@
     <sound name="ooh" source="ooh.wav" format="adpcm" pooled="true" />
     <sound name="aah" source="aah.wav" format="adpcm" pooled="true" />
     <sound name="score" source="success_light_01.wav" format="adpcm" pooled="true" />
+    <sound name="alert" source="success_light_02.wav" format="adpcm" pooled="true" />
     <sound name="comeon" source="comeon.wav" format="adpcm" pooled="true" />
     <sound name="aha" source="aha.wav" format="adpcm" pooled="true"  />
     <sound name="help" source="help.wav" format="adpcm" pooled="true"  />

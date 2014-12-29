@@ -335,6 +335,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     Relation<CharacterPersonalSpace> cps;
     brac::Stopwatch watch{false};
     GameParams params;
+    std::unique_ptr<CancelTimer> text_timer;
 
     Members(SpaceTime & st) : Impl{st} { }
 
@@ -363,6 +364,15 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
 Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, m{new Members{st}} {
     m->mode = mode;
     m->level = level;
+
+    auto registerTextAlert = [=](std::string s, vec2 pos) {
+        m->text_alert.s = s;
+        m->text_alert.pos = pos;
+        m->text_timer.reset(new CancelTimer(delay(1, [=]{ m->text_alert.s = ""; })));
+        m->text_timer->cancel(destroyed);
+
+        alert();
+    };
 
     auto generateLevel = [=]() {
         float   GREY_BAT_WORTH      = 0.3;
@@ -573,10 +583,6 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         if (!bird.canBeShot()) {
             return false;
         }
-
-        if(cpArbiterIsFirstContact(arb)) {
-            m->score += 10;
-        }
         return true;
     });
 
@@ -617,9 +623,11 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     cjb.b->dropCharacter();
                     cjb.c->rescue();
                     m->cjb.erase(cjb);
-                    m->score += SCORE_BIRD_KILLED;
-                } else {
                     m->score += SCORE_CHAR_RESCUED;
+                    registerTextAlert(std::to_string(SCORE_CHAR_RESCUED), vec2{bird.pos().x, bird.pos().y + float(1)});
+                } else {
+                    m->score += SCORE_BIRD_KILLED;
+                    registerTextAlert(std::to_string(SCORE_BIRD_KILLED), vec2{bird.pos().x, bird.pos().y + float(1)});
                 }
                 
                 bird.setAngle(0);

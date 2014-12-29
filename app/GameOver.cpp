@@ -92,7 +92,7 @@ void GameOver::onDraw() {
         drawValueText(s(int(float(ps_.hits) / float(ps_.darts) * 100)) + "% ACCURACY", {-3, -1.77}, 0.2, -0.15, -1);
         drawValueText(formatted_time_, {-3, -2.2}, 0.2, -0.15, -1);
 
-        drawHeaderText("MAN OF THE MATCH", {1.7, 1.45}, 0.3, -0.15);
+        drawHeaderText("LEVEL STAR", {1.7, 1.45}, 0.3, -0.15);
         SpriteProgram::draw(character.mugshot,  pmv() * mat4::scale(2) * mat4::translate({0.8, 0.15, 0}));
         SpriteProgram::draw(characters.dart,    pmv() * mat4::translate({-0.1, -1.5, 0})    * mat4::scale(0.5));
         SpriteProgram::draw(atlas.bathead,      pmv() * mat4::translate({-0.2, -1.95, 0})   * mat4::scale(0.25));

@@ -106,6 +106,11 @@ struct PlayerStats {
     float time = 0;
 };
 
+struct TextAlert {
+    std::string s;
+    brac::vec2 pos;
+};
+
 enum GameMode { m_menu, m_play, m_arcade, m_buzzer };
 constexpr GameMode MODE = m_menu;
 
@@ -124,6 +129,7 @@ public:
         size_t rem_chars;
         PlayerStats playerStats;
         std::vector<CharacterStats> characterStats;
+        TextAlert text_alert;
     };
 
     brac::Signal<void()> show_menu;
@@ -141,6 +147,7 @@ public:
     brac::Signal<void()> pumped;
     brac::Signal<void()> help;
     brac::Signal<void()> pop;
+    brac::Signal<void()> alert;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits

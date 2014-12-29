@@ -67,30 +67,14 @@ void Controller::newGame(GameMode mode, int level) {
 
     // TODO: Announce achievements.
 
-    m->game->bounced += [=](Character const & character, vec2 const & impulse) {
-        //if(brac::length_sq(impulse) > 400) {
-        //}
-    };
-    
-    m->game->aim += [=] {
-        m->audio.aim.play();
-    };
-    
-    m->game->shoot += [=] {
-        m->audio.shoot.play();
-    };
-
-    m->game->shot += [=] {
-        m->audio.shot.play();
-    };
-
-    m->game->die += [=] {
-        m->audio.ooh.play();
-    };
-
-    m->game->aah += [=] {
-        m->audio.aah.play();
-    };
+    m->game->aim        += [=] { m->audio.aim   .play(); };
+    m->game->shoot      += [=] { m->audio.shoot .play(); };
+    m->game->shot       += [=] { m->audio.shot  .play(); };
+    m->game->die        += [=] { m->audio.ooh   .play(); };
+    m->game->aah        += [=] { m->audio.aah   .play(); };
+    m->game->char_score += [=] { m->audio.score .play(); };
+    m->game->pop        += [=] { m->audio.pop   .play(); };
+    m->game->alert      += [=] { m->audio.alert .play(); };
 
     m->game->yay += [=] {
         auto p = randomChoice(yays);
@@ -109,14 +93,6 @@ void Controller::newGame(GameMode mode, int level) {
 
     m->game->tension_stop += [=] {
         m->audio.tension->stop();
-    };
-
-    m->game->char_score += [=] {
-        m->audio.score.play();
-    };
-
-    m->game->pop += [=] {
-        m->audio.pop.play();
     };
 
     m->game->help += [=] {
@@ -275,6 +251,8 @@ void Controller::onDraw() {
                 }
             }
         }
+
+        SpriteProgram::drawText(state.text_alert.s, font.glyphs, 0, pmv() * mat4::translate({state.text_alert.pos.x, state.text_alert.pos.y, 0}) * mat4::scale(0.3));
     }
 }
 
