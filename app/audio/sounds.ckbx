@@ -22,5 +22,6 @@
     <sound name="comeon" source="comeon.wav" format="adpcm" pooled="true" />
     <sound name="aha" source="aha.wav" format="adpcm" pooled="true"  />
     <sound name="help" source="help.wav" format="adpcm" pooled="true"  />
-    <sound name="helpme" source="helpme.wav" format="adpcm" pooled="true"  />
+    <sound name="helpme" source="helpme.wav" format="adpcm" pooled="true" />
+    <sound name="pop" source="pop.wav" format="adpcm" pooled="true" />
 </bank>

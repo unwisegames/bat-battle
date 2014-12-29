@@ -2,6 +2,7 @@
 #include "bats.sprites.h"
 #include "characters.sprites.h"
 #include "character.sprites.h"
+#include "atlas2.sprites.h"
 
 #include <bricabrac/Game/GameActorImpl.h>
 #include <bricabrac/Game/Timer.h>
@@ -12,6 +13,7 @@
 
 #include <math.h>
 #include <unordered_set>
+#include <iostream>
 
 using namespace brac;
 using namespace cpplinq;
@@ -38,6 +40,26 @@ struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
         //auto j = newPinJoint(body(), &b, {0, 0}, {0, 0});
         auto j = newPivotJoint(body(), &b, pos());
         return j;
+    }
+};
+
+struct GraveImpl : BodyShapes<Grave> {
+    GraveImpl(cpSpace * space, vec2 const pos)
+    : BodyShapes{space, newStaticBody(pos), sensor(atlas2.grave)}
+    {
+        setState(Grave::State::rising);
+    }
+
+    void newFrame(bool loopChanged) override {
+        if (!loopChanged && frame() == 0) {
+            switch (state()) {
+                case Grave::State::rising:
+                    setState(Grave::State::still);
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 };
 
@@ -294,7 +316,7 @@ struct CharacterPersonalSpace {
     size_t hash() const { return hash_of(c, p, ps); }
 };
 
-struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, PersonalSpaceImpl> {
+struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, PersonalSpaceImpl, GraveImpl> {
     ShapePtr worldBox{sensor(boxShape(20, 30, {0, 0}, 0), ct_universe)};
     ShapePtr abyssWalls[3];
     ShapePtr ground{segmentShape({-10, 2}, {10, 2})};
@@ -317,7 +339,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     Members(SpaceTime & st) : Impl{st} { }
 
     bool isKidnappable(CharacterImpl const & c) {
-        return (c.state() != Character::State::rescued &&
+        return (c.state() != Character::State::rescued && !c.isDead() &&
                 !(from(cjb) >> any([&](auto && cjb) { return cjb.c == &c; })));
     }
 
@@ -388,7 +410,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     auto removeCharacter = [=](CharacterImpl & c) {
         // remove PersonalSpaceImpl
-        auto matching = from(m->cps) >> ref() >> where([&](auto && cps) { return cps.get().c == &c; });
+        auto matching = from(m->cps) >> mutable_ref() >> where([&](auto && cps) { return cps.get().c == &c; });
         if (matching >> any()) {
             auto & cps = (matching >> first()).get();
             m->removeWhenSpaceUnlocked(*cps.ps);
@@ -658,10 +680,26 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             if (!character.isDead()) {
                 die();
                 character.setState(Character::State::dead);
+                character.setVel({0, 1});
+
                 --m->rem_chars;
                 if (m->rem_chars == 0) {
                     delay(2, [=]{ gameOver(false); }).cancel(destroyed);
                 }
+
+                // send birds after new target
+                from(m->targets) >> for_each([&](auto && targets) {
+                    if (targets.c == &character && targets.b->isFlying()) {
+                        if (targets.b->pos().y > ATTACK_LINE_Y) {
+                            newTarget(*targets.b);
+                        } else {
+                            // flying too low to target new character
+                            m->targets >> removeIf([&](auto && target) { return target.b == targets.b; });
+                            vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
+                            targets.b->setDesiredPos(atp);
+                        }
+                    }
+                });
             }
         }
         return false;
@@ -692,6 +730,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 case Character::State::dead:
                     if (!m->isCaptive(character)) {
                         character.setVel({0, 0});
+                        m->emplace<GraveImpl>(vec2{character.pos().x, 2.6});
+                        removeCharacter(character);
                     }
                 default:
                     break;

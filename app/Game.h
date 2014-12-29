@@ -72,6 +72,10 @@ struct Dart : brac::Actor { };
 
 struct PersonalSpace : brac::Actor { };
 
+struct Grave : brac::Actor {
+    enum State { rising, still };
+};
+
 struct CharacterStats {
     brac::SpriteDef mugshot;
     int dartsFired = 0;
@@ -136,6 +140,7 @@ public:
     brac::Signal<void()> char_score;
     brac::Signal<void()> pumped;
     brac::Signal<void()> help;
+    brac::Signal<void()> pop;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits

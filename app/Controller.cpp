@@ -115,6 +115,10 @@ void Controller::newGame(GameMode mode, int level) {
         m->audio.score.play();
     };
 
+    m->game->pop += [=] {
+        m->audio.pop.play();
+    };
+
     m->game->help += [=] {
         //auto p = randomChoice({&m->audio.help, &m->audio.helpme});
         //p->play();
@@ -238,6 +242,7 @@ void Controller::onDraw() {
         }
     }
 
+    SpriteProgram::draw(m->game->actors<Grave>      (), pmv());
     SpriteProgram::draw(m->game->actors<Character>  (), pmv());
     SpriteProgram::draw(m->game->actors<Dart>       (), pmv());
 
