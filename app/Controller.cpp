@@ -75,6 +75,7 @@ void Controller::newGame(GameMode mode, int level) {
     m->game->char_score += [=] { m->audio.score .play(); };
     m->game->pop        += [=] { m->audio.pop   .play(); };
     m->game->alert      += [=] { m->audio.alert .play(); };
+    m->game->fall       += [=] { m->audio.fall  .play(); };
 
     m->game->yay += [=] {
         auto p = randomChoice(yays);

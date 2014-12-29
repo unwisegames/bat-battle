@@ -751,14 +751,20 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         }
     });
 
-    m->onCollision([=](BirdImpl & bird, NoActor<ct_ground> &, cpArbiter *) {
-        if (bird.state() != Bird::State::dying) {
-            return false;
+    m->onCollision([=](BirdImpl & bird, NoActor<ct_ground> &, cpArbiter * arb) {
+        if (cpArbiterIsFirstContact(arb)) {
+            if (bird.state() == Bird::State::dying) {
+                bird.setState(Bird::State::puff);
+                bird.setVel({0, 0});
+                delay(0.85, [&]{ m->removeWhenSpaceUnlocked(bird); }).cancel(destroyed);
+                fall();
+            } else {
+                // bird has missed all targets and hit ground; send back to attack line
+                m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
+                vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
+                bird.setDesiredPos(atp);
+            }
         }
-
-        bird.setState(Bird::State::puff);
-        bird.setVel({0, 0});
-        delay(0.85, [&]{ m->removeWhenSpaceUnlocked(bird); }).cancel(destroyed);
         return true;
     });
 
