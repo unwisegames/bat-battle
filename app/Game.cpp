@@ -149,7 +149,11 @@ struct CharacterImpl : BodyShapes<Character> {
         }
         if (!isDead()) {
             setState(Character::State::yell);
-            delay(1, [=]{ setState(Character::State::crying); }).cancel(destroyed);
+            delay(1, [=] {
+                if (state() == Character::State::yell) {
+                    setState(Character::State::crying);
+                }
+            }).cancel(destroyed);
         }
     }
 
