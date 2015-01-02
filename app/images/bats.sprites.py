@@ -26,8 +26,8 @@ def yellow(points):
     ]
 
 sprites(
-    bat = floodfill((4, 0.5)),
-    wings=floodfill((0.5, 1), scale=20, origin='center'),
+    #bat = floodfill((4, 0.5)),  # unused
+    #wings=floodfill((0.5, 1), scale=20),  # broken (and unused)
     bats=[
         grey([(1.5 ,  2.27), (3.98,  2.21), (6.32,  1.86), (8.86,  2.21)]),
         yellow([(1.6, 8.85), (4.3, 8.85), (6.63, 8.61), (4.3 , 8.85)]),
