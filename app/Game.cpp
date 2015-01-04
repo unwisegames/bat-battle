@@ -4,12 +4,14 @@
 #include "character.sprites.h"
 #include "atlas2.sprites.h"
 
+#include <bricabrac/Data/Relation.h>
 #include <bricabrac/Game/GameActorImpl.h>
 #include <bricabrac/Game/Timer.h>
+#include <bricabrac/Logging/Logging.h>
 #include <bricabrac/Math/MathUtil.h>
 #include <bricabrac/Math/Random.h>
-#include <bricabrac/Logging/Logging.h>
-#include <bricabrac/Data/Relation.h>
+#include <bricabrac/Thread/quantize.h>
+#include <bricabrac/Thread/range.h>
 
 #include <math.h>
 #include <unordered_set>
@@ -82,6 +84,15 @@ struct CharacterImpl : BodyShapes<Character> {
         cpShapeSetGroup(&*shape, gr_character);
 
         stats.mugshot = character.mugshot;
+
+        reader<> ticks;
+        spawn(new_ticker(mkchan(ticks), 5));
+
+        spawn([ticks]{
+            while (ticks >> zilch) {
+                std::cerr << "Update\n";
+            }
+        });
     }
 
     virtual bool isAiming() const override {
@@ -178,6 +189,7 @@ struct CharacterImpl : BodyShapes<Character> {
 };
 
 constexpr float F = 1;
+
 struct BirdImpl : BodyShapes<Bird> {
     bool hasCaptive = false;
     bool fromWhence = false;
@@ -745,6 +757,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                         m->emplace<GraveImpl>(vec2{character.pos().x, 2.6});
                         removeCharacter(character);
                     }
+                    break;
                 default:
                     break;
             }
