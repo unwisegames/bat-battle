@@ -375,6 +375,15 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     bool firedDart(CharacterImpl const & c, DartImpl const & d) {
         return (from(csd) >> any([&](auto && csd) { return csd.c == &c && csd.d == &d; }));
     }
+
+    bool anybodyLeft() {
+        auto iAm = [=](CharacterImpl const & c) {
+            return (!c.isDead() && !(from(cjb) >> any([&](auto && cjb) { return cjb.c == &c; })));
+        };
+
+        return (from(actors<CharacterImpl>()) >> mutable_ref() >> any([&](auto && c) { return iAm(c); }));
+    }
+
 };
 
 Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, m{new Members{st}} {
@@ -578,19 +587,23 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
             for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
 
-            // send other birds after new target
-            from(m->targets) >> for_each([&](auto && targets) {
-                if (targets.c == &character && targets.b != &bird && targets.b->isFlying()) {
-                    if (targets.b->pos().y > ATTACK_LINE_Y) {
-                        newTarget(*targets.b);
-                    } else {
-                        // flying too low to target new character
-                        m->targets >> removeIf([&](auto && target) { return target.b == targets.b; });
-                        vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
-                        targets.b->setDesiredPos(atp);
+            if (!m->anybodyLeft()) {
+                delay(2, [=]{ gameOver(false); }).cancel(destroyed);
+            } else {
+                // send other birds after new target
+                from(m->targets) >> for_each([&](auto && targets) {
+                    if (targets.c == &character && targets.b != &bird && targets.b->isFlying()) {
+                        if (targets.b->pos().y > ATTACK_LINE_Y) {
+                            newTarget(*targets.b);
+                        } else {
+                            // flying too low to target new character
+                            m->targets >> removeIf([&](auto && target) { return target.b == targets.b; });
+                            vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
+                            targets.b->setDesiredPos(atp);
+                        }
                     }
-                }
-            });
+                });
+            }
         }
         return true;
     });
