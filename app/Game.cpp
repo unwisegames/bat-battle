@@ -588,7 +588,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
 
             if (!m->anybodyLeft()) {
-                delay(2, [=]{ gameOver(false); }).cancel(destroyed);
+                delay(2, [=] {
+                    failed();
+                    gameOver(false);
+                }).cancel(destroyed);
             } else {
                 // send other birds after new target
                 from(m->targets) >> for_each([&](auto && targets) {

@@ -149,6 +149,7 @@ public:
     brac::Signal<void()> pop;
     brac::Signal<void()> alert;
     brac::Signal<void()> fall;
+    brac::Signal<void()> failed;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits

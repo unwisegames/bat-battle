@@ -53,6 +53,7 @@ void Controller::newGame(GameMode mode, int level) {
     m->audio.ambience->setLoopCount(-1);
     mode == m_play ? m->audio.ambience->play() : m->audio.ambience->stop();
     m->audio.tension->stop();
+    m->audio.fail->stop();
 
     auto & a = m->audio;
     brac::AudioSystem::SoundPool * yays[] = {&a.yay1, &a.yay2, &a.yay3, &a.yay4, &a.yay5, &a.yay6, &a.yay7, &a.yay8, &a.yay9};
@@ -94,6 +95,11 @@ void Controller::newGame(GameMode mode, int level) {
 
     m->game->tension_stop += [=] {
         m->audio.tension->stop();
+    };
+
+    m->game->failed += [=] {
+        m->audio.fail->setLoopCount(0);
+        m->audio.fail->play();
     };
 
     m->game->help += [=] {
