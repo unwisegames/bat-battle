@@ -361,27 +361,27 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     }
 
     bool isBeingTargeted(CharacterImpl const & c) {
-        return (from(targets) >> any([&](auto && t) { return t.c == &c; }));
+        return from(targets) >> any([&](auto && t) { return t.c == &c; });
     }
 
     bool hasCaptive(BirdImpl const & b) {
-        return (from(cjb) >> any([&](auto && cjb) { return cjb.b == &b; }));
+        return from(cjb) >> any([&](auto && cjb) { return cjb.b == &b; });
     }
 
     bool isCaptive(CharacterImpl const & c) {
-        return (from(cjb) >> any([&](auto && cjb) { return cjb.c == &c; }));
+        return from(cjb) >> any([&](auto && cjb) { return cjb.c == &c; });
     }
 
     bool firedDart(CharacterImpl const & c, DartImpl const & d) {
-        return (from(csd) >> any([&](auto && csd) { return csd.c == &c && csd.d == &d; }));
+        return from(csd) >> any([&](auto && csd) { return csd.c == &c && csd.d == &d; });
     }
 
     bool anybodyLeft() {
         auto iAm = [=](CharacterImpl const & c) {
-            return (!c.isDead() && !(from(cjb) >> any([&](auto && cjb) { return cjb.c == &c; })));
+            return !c.isDead() && !(from(cjb) >> any([&](auto && cjb) { return cjb.c == &c; }));
         };
 
-        return (from(actors<CharacterImpl>()) >> mutable_ref() >> any([&](auto && c) { return iAm(c); }));
+        return from(actors<CharacterImpl>()) >> any([&](auto && c) { return iAm(c); });
     }
 
 };
