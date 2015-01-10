@@ -11,7 +11,6 @@ constexpr float GRAVITY = -30;
 constexpr float LAUNCH_OFFSET = 1;
 constexpr float WORLD_GRAVITY = -10;
 constexpr float ATTACK_LINE_Y = 6;
-constexpr int LEVEL_YELLOW_BATS_INTRODUCED = 11;
 
 // Temporary: move to GameParams struct and passed as param to newGame?
 constexpr int   CHARACTERS = 2;
@@ -130,6 +129,7 @@ public:
         PlayerStats playerStats;
         std::vector<CharacterStats> characterStats;
         TextAlert text_alert;
+        GameParams params;
     };
 
     brac::Signal<void()> show_menu;
@@ -150,6 +150,7 @@ public:
     brac::Signal<void()> alert;
     brac::Signal<void()> fall;
     brac::Signal<void()> failed;
+    brac::Signal<void()> lose;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits

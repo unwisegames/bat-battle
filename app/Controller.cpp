@@ -77,6 +77,7 @@ void Controller::newGame(GameMode mode, int level) {
     m->game->pop        += [=] { m->audio.pop   .play(); };
     m->game->alert      += [=] { m->audio.alert .play(); };
     m->game->fall       += [=] { m->audio.fall  .play(); };
+    m->game->lose       += [=] { m->audio.fail2 .play(); };
 
     m->game->yay += [=] {
         auto p = randomChoice(yays);
@@ -236,7 +237,7 @@ void Controller::onDraw() {
         state.back->draw(pmv());
         state.restart->draw(pmv());
 
-        if (state.level < LEVEL_YELLOW_BATS_INTRODUCED) {
+        if (state.params.yellow_bats == 0) {
             SpriteProgram::drawText(std::to_string(state.rem_grey_bats), font.glyphs, -1, pmv() * mat4::translate({0    , m->top-1, 0}) * mat4::scale(0.5));
             SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-0.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
         } else {

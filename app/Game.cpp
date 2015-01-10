@@ -17,6 +17,8 @@
 #include <unordered_set>
 #include <iostream>
 
+#include "levels.h"
+
 using namespace brac;
 using namespace cpplinq;
 
@@ -350,7 +352,6 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     Relation<CharacterShotDart> csd;
     Relation<CharacterPersonalSpace> cps;
     brac::Stopwatch watch{false};
-    GameParams params;
     std::unique_ptr<CancelTimer> text_timer;
 
     Members(SpaceTime & st) : Impl{st} { }
@@ -400,7 +401,20 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     };
 
     auto generateLevel = [=]() {
-        float   GREY_BAT_WORTH      = 0.3;
+        m->params.grey_bats     = lp[m->level - 1].grey_bats;
+        m->params.yellow_bats   = lp[m->level - 1].yellow_bats;
+        m->params.characters    = lp[m->level - 1].characters;
+        m->params.bird_speed    = lp[m->level - 1].bird_speed;
+
+        m->playerStats.characters   = m->params.characters;
+        m->playerStats.birds        = m->params.grey_bats + m->params.yellow_bats;
+        m->rem_grey_bats            = m->params.grey_bats;
+        m->rem_yellow_bats          = m->params.yellow_bats;
+        m->rem_chars                = m->params.characters;
+
+        // Temporarily leaving in algorithm below for posterity
+        // ********************************************************
+        /*float   GREY_BAT_WORTH      = 0.3;
         float   YELLOW_BAT_WORTH    = 0.5;
         float   CHARACTER_DEC       = 0.1;
         float   BAT_SPEED_INC       = 0.05;
@@ -434,13 +448,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 max_gry = m->params.grey_bats;
                 max_ylw = m->params.yellow_bats;
             }
-        } while (difficulty < min_diff || difficulty > max_diff);
-
-        m->playerStats.characters   = m->params.characters;
-        m->playerStats.birds        = m->params.grey_bats + m->params.yellow_bats;
-        m->rem_grey_bats            = m->params.grey_bats;
-        m->rem_yellow_bats          = m->params.yellow_bats;
-        m->rem_chars                = m->params.characters;
+        } while (difficulty < min_diff || difficulty > max_diff);*/
+        // ********************************************************
     };
 
     auto removeCharacter = [=](CharacterImpl & c) {
@@ -588,7 +597,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
 
             if (!m->anybodyLeft()) {
-                delay(2, [=] {
+                delay(0.5, [=] { tension_stop(); lose(); }).cancel(destroyed);
+                delay(2.5, [=] {
                     failed();
                     gameOver(false);
                 }).cancel(destroyed);
