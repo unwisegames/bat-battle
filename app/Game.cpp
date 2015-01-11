@@ -11,7 +11,6 @@
 #include <bricabrac/Math/MathUtil.h>
 #include <bricabrac/Math/Random.h>
 #include <bricabrac/Thread/quantize.h>
-#include <bricabrac/Thread/range.h>
 
 #include <math.h>
 #include <unordered_set>
@@ -88,7 +87,7 @@ struct CharacterImpl : BodyShapes<Character> {
         stats.mugshot = character.mugshot;
 
         reader<> ticks;
-        spawn(new_ticker(mkchan(ticks), 5));
+        spawn(new_ticker(++ticks, 5));
 
         spawn([ticks]{
             while (ticks >> zilch) {
