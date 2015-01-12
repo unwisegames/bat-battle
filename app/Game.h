@@ -75,6 +75,14 @@ struct Grave : brac::Actor {
     enum State { rising, still };
 };
 
+struct BombBat : brac::Actor {
+    enum State { flying };
+};
+
+struct Bomb : brac::Actor { };
+
+struct Blast : brac::Actor { };
+
 struct CharacterStats {
     brac::SpriteDef mugshot;
     int dartsFired = 0;

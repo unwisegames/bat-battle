@@ -22,11 +22,12 @@
     <sound name="score" source="success_light_01.wav" format="adpcm" pooled="true" />
     <sound name="alert" source="success_light_02.wav" format="adpcm" pooled="true" />
     <sound name="comeon" source="comeon.wav" format="adpcm" pooled="true" />
-    <sound name="aha" source="aha.wav" format="adpcm" pooled="true"  />
+    <sound name="aha" source="aha.wav" format="adpcm" pooled="true" />
     <sound name="help" source="help.wav" format="adpcm" pooled="true"  />
     <sound name="helpme" source="helpme.wav" format="adpcm" pooled="true" />
     <sound name="pop" source="pop.wav" format="adpcm" pooled="true" />
     <sound name="fall" source="fall.wav" format="adpcm" pooled="true" />
     <sound name="lose" source="lose.wav" format="adpcm" pooled="true" />
     <sound name="fail2" source="fail2.wav" format="adpcm" pooled="true" />
+    <sound name="ching" source="ching04.wav" format="adpcm" pooled="true" />
 </bank>

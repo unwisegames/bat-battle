@@ -58,8 +58,11 @@ void Controller::newGame(GameMode mode, int level) {
     auto & a = m->audio;
     brac::AudioSystem::SoundPool * yays[] = {&a.yay1, &a.yay2, &a.yay3, &a.yay4, &a.yay5, &a.yay6, &a.yay7, &a.yay8, &a.yay9};
 
+    auto click = [=] { m->audio.ching.play(); };
+
     auto newGame = [=](GameMode mode, int level = -1) {
         return [=]{
+            click();
             m->mode = mode;
             m->level = level;
             m->newGame = true;
@@ -104,8 +107,6 @@ void Controller::newGame(GameMode mode, int level) {
     };
 
     m->game->help += [=] {
-        //auto p = randomChoice({&m->audio.help, &m->audio.helpme});
-        //p->play();
         m->audio.help.play();
     };
 
@@ -162,19 +163,23 @@ void Controller::newGame(GameMode mode, int level) {
         menu->play->clicked += newGame(m_play, *m->highestCompletedLevel + 1);
 
         menu->gamecenter->clicked += [=]{
+            click();
             presentBragUI();
         };
         menu->twitter->clicked += [=]{
+            click();
             UrlOpener::open("http://www.twitter.com/UnwiseGames");
         };
     };
 
     state.back->clicked += [=] {
+        click();
         m->newGame = true;
         m->mode = m_menu;
     };
 
     state.restart->clicked += [=] {
+        click();
         m->game->end();
 //        m->newGame = true;
 //        m->mode = m_play;
@@ -226,6 +231,9 @@ void Controller::onDraw() {
         }
     }
 
+    SpriteProgram::draw(m->game->actors<Bomb>       (), pmv());
+    SpriteProgram::draw(m->game->actors<BombBat>    (), pmv());
+    SpriteProgram::draw(m->game->actors<Blast>      (), pmv());
     SpriteProgram::draw(m->game->actors<Grave>      (), pmv());
     SpriteProgram::draw(m->game->actors<Character>  (), pmv());
     SpriteProgram::draw(m->game->actors<Dart>       (), pmv());
