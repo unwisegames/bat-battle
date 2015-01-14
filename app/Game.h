@@ -79,9 +79,15 @@ struct BombBat : brac::Actor {
     enum State { flying };
 };
 
-struct Bomb : brac::Actor { };
+struct BombLaunchPos : brac::Actor { };
+
+struct Bomb : brac::Actor {
+    int countdown = 0;
+};
 
 struct Blast : brac::Actor { };
+
+struct CharacterExplosion : brac::Actor { };
 
 struct CharacterStats {
     brac::SpriteDef mugshot;
@@ -126,6 +132,8 @@ public:
     struct State {
         bool started = false;
         bool level_passed = false;
+        bool level_failed = false;
+        bool show_char_score = false;
         size_t score = 0;
         GameMode mode;
         int level;
@@ -159,6 +167,11 @@ public:
     brac::Signal<void()> fall;
     brac::Signal<void()> failed;
     brac::Signal<void()> lose;
+    brac::Signal<void()> dundundun;
+    brac::Signal<void()> beep;
+    brac::Signal<void()> tick;
+    brac::Signal<void()> charblast;
+    brac::Signal<void()> boom;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits

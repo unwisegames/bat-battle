@@ -4,6 +4,7 @@
 #include "character.sprites.h"
 #include "atlas2.sprites.h"
 #include "bomb.sprites.h"
+#include "blast.sprites.h"
 
 #include <bricabrac/Data/Relation.h>
 #include <bricabrac/Game/GameActorImpl.h>
@@ -281,10 +282,16 @@ struct BirdImpl : BodyShapes<Bird> {
 };
 
 struct BombBatImpl : BodyShapes<BombBat> {
-    BombBatImpl(cpSpace * space, vec2 const & pos)
+    vec2 desired_pos;
+    bool reachedLaunchPos = false;
+    bool droppedBomb = false;
+
+    BombBatImpl(cpSpace * space, vec2 const & pos, vec2 const & des_pos)
     : BodyShapes{space, newBody(1, 1, pos), bomb.bat, gr_bird, l_play}
     {
         setForce({0, -WORLD_GRAVITY});
+
+        desired_pos = des_pos;
     }
 
     void newState(size_t & loop) override {
@@ -293,7 +300,11 @@ struct BombBatImpl : BodyShapes<BombBat> {
 
     virtual void doUpdate(float) override {
         setAngle(0);
-        setVel({0, 0});
+        if (!reachedLaunchPos || droppedBomb) {
+            setVel(unit(desired_pos - pos()));
+        } else {
+            setVel({0, 0});
+        }
     }
 
     array<ConstraintPtr, 2> holdBomb(cpBody & b) {
@@ -304,9 +315,29 @@ struct BombBatImpl : BodyShapes<BombBat> {
         };
         return {joint({-0.2, 0}), joint({0.2, 0})};
     }
+
+    void setDesiredPos(vec2 dp) {
+        desired_pos = dp;
+    }
+};
+
+struct BombLaunchPosImpl : BodyShapes<BombLaunchPos> {
+    ShapePtr shape;
+
+    BombLaunchPosImpl(cpSpace * space, vec2 const & pos)
+    : BodyShapes{space, newBody(1, 1, pos), sensor(bomb.bomb), CP_NO_GROUP, l_play}
+    {
+        setForce({0, -WORLD_GRAVITY});
+
+        shape = newCircleShape(0.1, {0, 0})(body());
+        cpShapeSetLayers(&*shape, l_play);
+        cpShapeSetSensor(&*shape, true);
+    }
 };
 
 struct BombImpl : BodyShapes<Bomb> {
+    std::unique_ptr<Ticker> tick;
+
     BombImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), bomb.bomb, gr_bird, l_play}
     {
@@ -323,11 +354,9 @@ struct BombImpl : BodyShapes<Bomb> {
 
 struct BlastImpl : BodyShapes<Blast> {
     BlastImpl(cpSpace * space, vec2 const & pos)
-    : BodyShapes{space, newBody(1, 1, pos), sensor(bomb.blast), CP_NO_GROUP, l_play}
+    : BodyShapes{space, newBody(1, 1, pos), sensor(blast.blast), CP_NO_GROUP, l_play}
     {
         setForce({0, -WORLD_GRAVITY});
-
-        //delay(1, [=]{ removeWhenSpaceUnlocked(body()); }).cancel(destroyed);
     }
 
     void newState(size_t & loop) override {
@@ -335,6 +364,14 @@ struct BlastImpl : BodyShapes<Blast> {
     }
 
     virtual void doUpdate(float) override {
+    }
+};
+
+struct CharacterExplosionImpl : BodyShapes<CharacterExplosion> {
+    CharacterExplosionImpl(cpSpace * space, vec2 const & pos)
+    : BodyShapes{space, newBody(1, 1, pos), sensor(blast.characterblast), CP_NO_GROUP, l_play}
+    {
+        setForce({0, -WORLD_GRAVITY});
     }
 };
 
@@ -401,7 +438,15 @@ struct BatJointBomb {
     size_t hash() const { return hash_of(bat, p[0], p[1], bomb); }
 };
 
-struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, PersonalSpaceImpl, GraveImpl, BombBatImpl, BombImpl, BlastImpl> {
+struct BombBatLaunch {
+    BombBatImpl * bat;
+    BombLaunchPosImpl * launch;
+
+    bool operator==(BombBatLaunch const & bbl) const { return bat == bbl.bat && launch == bbl.launch; }
+    size_t hash() const { return hash_of(bat, launch); }
+};
+
+struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, PersonalSpaceImpl, GraveImpl, BombBatImpl, BombImpl, BlastImpl, CharacterExplosionImpl, BombLaunchPosImpl> {
     ShapePtr worldBox{sensor(boxShape(20, 30, {0, 0}, 0), ct_universe)};
     ShapePtr abyssWalls[3];
     ShapePtr ground{segmentShape({-10, 2}, {10, 2})};
@@ -419,6 +464,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     Relation<CharacterShotDart> csd;
     Relation<CharacterPersonalSpace> cps;
     Relation<BatJointBomb> bjb;
+    Relation<BombBatLaunch> bbl;
     brac::Stopwatch watch{false};
     std::unique_ptr<CancelTimer> text_timer;
 
@@ -469,11 +515,11 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     };
 
     auto generateLevel = [=]() {
-        m->params.grey_bats     = 10; //lp[m->level - 1].grey_bats;
+        m->params.grey_bats     = lp[m->level - 1].grey_bats;
         m->params.yellow_bats   = lp[m->level - 1].yellow_bats;
         m->params.characters    = lp[m->level - 1].characters;
         m->params.bird_speed    = lp[m->level - 1].bird_speed;
-        m->params.bird_freq     = 3; //lp[m->level - 1].bird_freq;
+        m->params.bird_freq     = lp[m->level - 1].bird_freq;
 
         m->playerStats.characters   = m->params.characters;
         m->playerStats.birds        = m->params.grey_bats + m->params.yellow_bats;
@@ -569,7 +615,6 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         from(m->targets) >> for_each([&](auto && targets) {
             if (targets.c == &character && targets.b->isFlying()) {
                 if (targets.b->pos().y > ATTACK_LINE_Y) {
-                    std::cerr << "retargeting\n";
                     newTarget(*targets.b);
                 } else {
                     // flying too low to target new character
@@ -595,12 +640,119 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         m->removeWhenSpaceUnlocked(c);
     };
 
-    auto detonate = [=](BombImpl & bomb) {
-        auto & blast = m->emplace<BlastImpl>(bomb.pos());
-        delay(1, [&]{ m->removeWhenSpaceUnlocked(blast); }).cancel(destroyed);
-        m->removeWhenSpaceUnlocked(bomb);
+    auto characterKilled = [=]() {
+        --m->rem_chars;
+        if (m->rem_chars == 0) {
+            m->level_failed = true;
+            delay(0.5, [=] { tension_stop(); lose(); }).cancel(destroyed);
+            delay(2.5, [=] {
+                gameOver(false);
+            }).cancel(destroyed);
+        }
     };
 
+    auto batKilled = [=](BirdType bt) {
+        ++m->playerStats.kills;
+
+        if (bt == bt_grey) {
+            --m->rem_grey_bats;
+        } else if (bt == bt_yellow) {
+            --m->rem_yellow_bats;
+        }
+        if (m->rem_grey_bats == 0 && m->rem_yellow_bats == 0) {
+            if (!m->level_failed) {
+                m->level_passed = true;
+                for (auto & c : m->actors<CharacterImpl>()) {
+                    if (!c.isDead())
+                        yay();
+                    c.celebrate();
+                }
+                tension_stop();
+                delay(1, [=]{
+                    char_score();
+                    m->show_char_score = true;
+                }).cancel(destroyed);
+                delay(4, [=]{ gameOver(true); }).cancel(destroyed);
+            }
+        }
+    };
+
+    auto playCharacterExplosion = [=](vec2 pos) {
+        auto & expl = m->emplace<CharacterExplosionImpl>(pos);
+        charblast();
+        delay(1.1, [&]{ m->removeWhenSpaceUnlocked(expl); }).cancel(destroyed);
+    };
+
+    auto detonate = [=](BombImpl & bomb) {
+        auto blastPos = bomb.pos();
+        auto & blast = m->emplace<BlastImpl>(blastPos);
+        boom();
+        delay(1.1, [&]{ m->removeWhenSpaceUnlocked(blast); }).cancel(destroyed);
+        m->removeWhenSpaceUnlocked(bomb);
+
+        //auto rad = 3;
+
+        auto inBlastRadius = [=](vec2 pos) {
+            auto rad = 2.5;
+
+            // TEMPORARY: bounding box for now
+            return (pos.x > blastPos.x - rad && pos.x < blastPos.x + rad
+                    && pos.y > blastPos.y - rad && pos.y < blastPos.y + rad);
+        };
+
+        if (!m->level_passed && !m->level_failed) {
+            for (auto & c : m->actors<CharacterImpl>()) {
+                if (inBlastRadius(c.pos())) {
+                    // is character currently kidnapped? If so, release character.
+                    auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().c == &c; });
+                    if (matching >> any()) {
+                        auto & cjb = (matching >> first()).get();
+                        m->cjb.erase(cjb);
+
+                        // send bird after new target
+                        m->targets >> removeIf([&](auto && target) { return target.b == cjb.b; });
+                        if (cjb.b->pos().y > ATTACK_LINE_Y) {
+                            newTarget(*cjb.b);
+                        } else {
+                            // flying too low to target new character
+                            vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
+                            cjb.b->setDesiredPos(atp);
+                        }
+                    }
+                    auto pos = c.pos();
+                    delay(rand<float>(0.01, 0.2), [=]{ playCharacterExplosion(pos); });
+                    removeCharacter(c);
+                    retargetBirdsChasingMe(c);
+
+                    if (!c.isDead()) {
+                        characterKilled();
+                    }
+                }
+            }
+
+            if (!m->level_failed) { // above didn't wipe out last of characters
+                for (auto & b : m->actors<BirdImpl>()) {
+                    if (b.isFlying()) {
+                        if (inBlastRadius(b.pos())) {
+                            // is bat carrying character? If so, rescue character.
+                            auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &b; });
+                            if (matching >> any()) {
+                                auto & cjb = (matching >> first()).get();
+                                m->cjb.erase(cjb);
+                                cjb.c->rescue();
+                            }
+
+                            batKilled(b.bird_type);
+                            auto pos = b.pos();
+                            delay(rand<float>(0.01, 0.2), [=]{ playCharacterExplosion(pos); });
+                            m->removeWhenSpaceUnlocked(b);
+                        }
+                    }
+                }
+            }
+        }
+    };
+    
     if (mode == m_menu) {
         delay(0, [=]{ show_menu(); }).cancel(destroyed);
     } else {
@@ -669,9 +821,16 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             }).cancel(destroyed);
         }});
 
-        auto & bb = m->emplace<BombBatImpl>(vec2{0, 8});
-        auto & bmb = m->emplace<BombImpl>(vec2{0, 7.2});
-        m->bjb.insert(BatJointBomb{&bb, bb.holdBomb(*bmb.body()), &bmb});
+        // TEMPORARY: hard-coded creation of bomb bat
+        delay(4, [=]{
+            auto STARTPOS = vec2{rand<float>(-10, 10), top + 2};
+            auto LAUNCHPOS = vec2{clamp(rand<float>(STARTPOS.x - 5, STARTPOS.x + 5), -8, 8), rand<float>(top - float(2.5), top - 5)};
+            auto & bb = m->emplace<BombBatImpl>(STARTPOS, LAUNCHPOS);
+            auto & bmb = m->emplace<BombImpl>(vec2{STARTPOS.x, STARTPOS.y - float(0.8)});
+            m->bjb.insert(BatJointBomb{&bb, bb.holdBomb(*bmb.body()), &bmb});
+            auto & lau = m->emplace<BombLaunchPosImpl>(LAUNCHPOS);
+            m->bbl.insert(BombBatLaunch{&bb, &lau});
+        }).cancel(destroyed);
     }
 
     m->onCollision([=](BirdImpl & bird, CharacterImpl & character, cpArbiter * arb) {
@@ -728,13 +887,65 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 // destroy bat (as he would be)
                 for (auto & bat : m->actors<BombBatImpl>()) {
                     if (&bat == bjb.bat) {
+                        auto pos = bat.pos();
+                        delay(rand<float>(0.01, 0.2), [=]{ playCharacterExplosion(pos); });
                         m->removeWhenSpaceUnlocked(bat);
                     }
                 }
             }
-            m->emplace<BlastImpl>(bomb.pos());
-            m->removeWhenSpaceUnlocked(bomb);
+            bomb.tick.reset();
+            detonate(bomb);
             m->removeWhenSpaceUnlocked(dart);
+        }
+    });
+
+    m->onCollision([=](BombBatImpl & bat, BombLaunchPosImpl & launch, cpArbiter * arb) {
+        if (cpArbiterIsFirstContact(arb)) {
+            if (from(m->bbl) >> any([&](auto && bbl) { return bbl.bat == &bat && bbl.launch == &launch; })) {
+                // bat has reached position
+                m->bbl >> removeIf([&](auto && bbl) { return bbl.launch == &launch; });
+                m->removeWhenSpaceUnlocked(launch);
+                bat.reachedLaunchPos = true;
+
+                // get bomb
+                auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat = &bat; });
+                if (matching >> any()) {
+                    auto & bjb = (matching >> first()).get();
+
+                    // arm bomb
+                    bjb.bomb->countdown = 5; beep();
+                    bjb.bomb->tick.reset(new Ticker{1, [&]{
+                        if (bjb.bomb->countdown > 0) {
+                            --(bjb.bomb->countdown); tick();
+                            if (bjb.bomb->countdown == 0) {
+                                bjb.bat->desired_pos = vec2{bjb.bat->pos().x, 20};
+                                bjb.bat->droppedBomb = true;
+                                bjb.bomb->setForce({0, 0}); // allow application of gravity
+                                bjb.bomb->tick.reset();
+                                m->bjb.erase(bjb);
+                            }
+                        }
+                    }});
+                }
+            }
+        }
+        return false;
+    });
+
+    m->onCollision([=](BombBatImpl & bat, NoActor<ct_abyss> &, cpArbiter * arb) {
+        if (cpArbiterIsFirstContact(arb)) {
+            if (!(from(m->bjb) >> any([&](auto && bjb) { return bjb.bat == &bat; }))) {
+                // bat is not carrying bomb, remove
+                m->removeWhenSpaceUnlocked(bat);
+            }
+        }
+    });
+
+    m->onCollision([=](BombImpl & bomb, NoActor<ct_startle> &, cpArbiter * arb) {
+        if (cpArbiterIsFirstContact(arb)) {
+            if (from(m->bjb) >> any([&](auto && bjb) { return bjb.bomb == &bomb; })) {
+                dundundun();
+            }
         }
     });
 
@@ -751,8 +962,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat = &bat; });
             if (matching >> any()) {
                 auto & bjb = (matching >> first()).get();
-                m->bjb.erase(bjb);
+                bjb.bomb->tick.reset();
+                bjb.bomb->setVel({0, 0});
                 bjb.bomb->setForce({0, 0}); // allow application of gravity
+                m->bjb.erase(bjb);
             }
             m->removeWhenSpaceUnlocked(dart);
         }
@@ -764,78 +977,13 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         }
     });
 
+    m->onCollision([=](BombImpl & bomb, CharacterImpl & character, cpArbiter * arb) {
+        return m->isKidnappable(character);
+    });
+
     m->onPostSolve([=](BombImpl & bomb, CharacterImpl &, cpArbiter * arb) {
         if (cpArbiterIsFirstContact(arb)) {
             detonate(bomb);
-        }
-    });
-
-    m->onCollision([=](BlastImpl & blast, CharacterImpl & character, cpArbiter * arb) {
-        if (cpArbiterIsFirstContact(arb)) {
-            std::cerr << "collision";
-            auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().c == &character; });
-            if (matching >> any()) {
-                auto & cjb = (matching >> first()).get();
-                m->cjb.erase(cjb);
-                for (auto & b : m->actors<BirdImpl>()) {
-                    if (&b == cjb.b) {
-                        if (b.bird_type == bt_grey) {
-                            --m->rem_grey_bats;
-                        } else if (b.bird_type == bt_yellow) {
-                            --m->rem_yellow_bats;
-                        }
-                        m->removeWhenSpaceUnlocked(b);
-                    }
-                }
-            }
-            removeCharacter(character);
-            retargetBirdsChasingMe(character);
-
-            --m->rem_chars;
-            if (m->rem_chars == 0) {
-                delay(2, [=]{ gameOver(false); }).cancel(destroyed);
-            }
-        }
-    });
-
-    m->onCollision([=](BlastImpl & blast, BirdImpl & bird, cpArbiter * arb) {
-        if (cpArbiterIsFirstContact(arb)) {
-            std::cerr << "collision";
-            auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });
-            if (matching >> any()) {
-                auto & cjb = (matching >> first()).get();
-                m->cjb.erase(cjb);
-                for (auto & c : m->actors<CharacterImpl>()) {
-                    if (&c == cjb.c) {
-                        removeCharacter(c);
-                        --m->rem_chars;
-                        if (m->rem_chars == 0) {
-                            delay(2, [=]{ gameOver(false); }).cancel(destroyed);
-                        }
-                    }
-                }
-            }
-
-            if (bird.bird_type == bt_grey) {
-                --m->rem_grey_bats;
-            } else if (bird.bird_type == bt_yellow) {
-                --m->rem_yellow_bats;
-            }
-            m->removeWhenSpaceUnlocked(bird);
-
-            if (m->rem_grey_bats == 0 && m->rem_yellow_bats == 0) {
-                for (auto & c : m->actors<CharacterImpl>()) {
-                    if (!c.isDead())
-                        yay();
-                    c.celebrate();
-                }
-                tension_stop();
-                delay(1, [=]{
-                    char_score();
-                    m->level_passed = true;
-                }).cancel(destroyed);
-                delay(4, [=]{ gameOver(true); }).cancel(destroyed);
-            }
         }
     });
 
@@ -895,26 +1043,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 cpBodySetAngVel(bird.body(), 0);
                 dart.setVel({0, 0});
 
-                if (bird.bird_type == bt_grey) {
-                    --m->rem_grey_bats;
-                } else if (bird.bird_type == bt_yellow) {
-                    --m->rem_yellow_bats;
-                }
-                ++m->playerStats.kills;
-
-                if (m->rem_grey_bats == 0 && m->rem_yellow_bats == 0) {
-                    for (auto & c : m->actors<CharacterImpl>()) {
-                        if (!c.isDead())
-                            yay();
-                        c.celebrate();
-                    }
-                    tension_stop();
-                    delay(1, [=]{
-                        char_score();
-                        m->level_passed = true;
-                    }).cancel(destroyed);
-                    delay(4, [=]{ gameOver(true); }).cancel(destroyed);
-                }
+                batKilled(bird.bird_type);
             }
 
             m->csd >> removeIf([&](auto && csd) { return csd.d == &dart; });
@@ -933,7 +1062,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     });
 
     m->onCollision([=](DartImpl & dart, CharacterImpl & character, cpArbiter * arb) {
-        if (dart.active) {
+        if (dart.active && !m->level_passed) {
             // Score friendly fire against character
             auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
                             >> where([&](auto && c) { return m->firedDart(c, dart); }));
@@ -950,10 +1079,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 character.setState(Character::State::dead);
                 character.setVel({0, 1});
 
-                --m->rem_chars;
-                if (m->rem_chars == 0) {
-                    delay(2, [=]{ gameOver(false); }).cancel(destroyed);
-                }
+                characterKilled();
 
                 retargetBirdsChasingMe(character);
             }
@@ -1067,10 +1193,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     if (&c == cjb.c) {
                         removeCharacter(c);
                         if (!c.isDead()) {
-                            --m->rem_chars;
-                            if (m->rem_chars == 0) {
-                                delay(2, [=]{ gameOver(false); }).cancel(destroyed);
-                            }
+                            characterKilled();
                         }
                     }
                 }

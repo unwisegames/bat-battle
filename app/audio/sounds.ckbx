@@ -29,5 +29,10 @@
     <sound name="fall" source="fall.wav" format="adpcm" pooled="true" />
     <sound name="lose" source="lose.wav" format="adpcm" pooled="true" />
     <sound name="fail2" source="fail2.wav" format="adpcm" pooled="true" />
-    <sound name="ching" source="ching04.wav" format="adpcm" pooled="true" />
+    <sound name="click" source="touch.wav" format="adpcm" pooled="true" />
+    <sound name="dundundun" source="dundundun.wav" format="adpcm" pooled="true" />
+    <sound name="tick" source="tick.wav" format="adpcm" pooled="true" />
+    <sound name="beep" source="beep.wav" format="adpcm" pooled="true" />
+    <sound name="charblast" source="charblast.wav" format="adpcm" pooled="true" />
+    <sound name="boom" source="explosion.wav" format="adpcm" pooled="true" />
 </bank>
