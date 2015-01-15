@@ -684,6 +684,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     };
 
     auto detonate = [=](BombImpl & bomb) {
+        bombwhistle_stop();
+
         auto blastPos = bomb.pos();
         auto & blast = m->emplace<BlastImpl>(blastPos);
         boom();
@@ -923,6 +925,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                                 bjb.bomb->setForce({0, 0}); // allow application of gravity
                                 bjb.bomb->tick.reset();
                                 m->bjb.erase(bjb);
+                                bombwhistle_start();
                             }
                         }
                     }});
@@ -950,7 +953,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     });
 
     m->onCollision([=](DartImpl &, BombBatImpl & bat, cpArbiter * arb) {
-        if (!(from(m->bjb) >> any([&](auto && bjb) { return bjb.bat == &bat; }))) {
+        if (bat.state() == BombBat::State::dying) {
             return false;
         }
         return true;
@@ -961,12 +964,18 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             // if bat holding bomb, drop it
             auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat = &bat; });
             if (matching >> any()) {
+                m->bbl >> removeIf([&](auto && bbl) { return bbl.bat == &bat; });
                 auto & bjb = (matching >> first()).get();
                 bjb.bomb->tick.reset();
+                bjb.bomb->countdown = 0;
                 bjb.bomb->setVel({0, 0});
                 bjb.bomb->setForce({0, 0}); // allow application of gravity
                 m->bjb.erase(bjb);
+                bombwhistle_start();
             }
+            bat.setVel({0, 0});
+            bat.setState(BombBat::State::dying); shot();
+            delay(0.6, [&]{ m->removeWhenSpaceUnlocked(bat); }).cancel(destroyed);
             m->removeWhenSpaceUnlocked(dart);
         }
     });
@@ -1039,7 +1048,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 }
                 
                 bird.setAngle(0);
-                bird.setVel({0, -3});
+                bird.setVel({0, -4});
                 cpBodySetAngVel(bird.body(), 0);
                 dart.setVel({0, 0});
 

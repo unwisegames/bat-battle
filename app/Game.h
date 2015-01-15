@@ -76,7 +76,7 @@ struct Grave : brac::Actor {
 };
 
 struct BombBat : brac::Actor {
-    enum State { flying };
+    enum State { flying, dying };
 };
 
 struct BombLaunchPos : brac::Actor { };
@@ -172,6 +172,8 @@ public:
     brac::Signal<void()> tick;
     brac::Signal<void()> charblast;
     brac::Signal<void()> boom;
+    brac::Signal<void()> bombwhistle_start;
+    brac::Signal<void()> bombwhistle_stop;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits

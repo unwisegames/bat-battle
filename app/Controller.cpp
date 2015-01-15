@@ -95,6 +95,9 @@ void Controller::newGame(GameMode mode, int level) {
     m->game->charblast  += [=] { m->audio.charblast .play(); };
     m->game->boom       += [=] { m->audio.boom      .play(); };
 
+    m->game->bombwhistle_start += [=] { m->audio.bombwhistle.play(); };
+    m->game->bombwhistle_stop  += [=] { m->audio.bombwhistle.stop(); };
+
     m->game->yay += [=] {
         auto p = randomChoice(yays);
         p->play();
