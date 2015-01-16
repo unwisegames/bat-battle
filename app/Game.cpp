@@ -283,8 +283,6 @@ struct BirdImpl : BodyShapes<Bird> {
 
 struct BombBatImpl : BodyShapes<BombBat> {
     vec2 desired_pos;
-    bool reachedLaunchPos = false;
-    bool droppedBomb = false;
 
     BombBatImpl(cpSpace * space, vec2 const & pos, vec2 const & des_pos)
     : BodyShapes{space, newBody(1, 1, pos), bomb.bat, gr_bird, l_play}
@@ -300,11 +298,9 @@ struct BombBatImpl : BodyShapes<BombBat> {
 
     virtual void doUpdate(float) override {
         setAngle(0);
-        if (!reachedLaunchPos || droppedBomb) {
-            setVel(unit(desired_pos - pos()));
-        } else {
-            setVel({0, 0});
-        }
+        auto dv = unit(desired_pos - pos()) * 1 - vel(); // "1" = speed
+        float epsilon = 0.01;
+        setForce(((length_sq(dv) > epsilon) * F * unit(dv)) + vec2{0, -WORLD_GRAVITY});
     }
 
     array<ConstraintPtr, 2> holdBomb(cpBody & b) {
@@ -321,10 +317,10 @@ struct BombBatImpl : BodyShapes<BombBat> {
     }
 };
 
-struct BombLaunchPosImpl : BodyShapes<BombLaunchPos> {
+struct BombBatCarrotImpl : BodyShapes<BombBatCarrot> {
     ShapePtr shape;
 
-    BombLaunchPosImpl(cpSpace * space, vec2 const & pos)
+    BombBatCarrotImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), sensor(bomb.bomb), CP_NO_GROUP, l_play}
     {
         setForce({0, -WORLD_GRAVITY});
@@ -438,15 +434,15 @@ struct BatJointBomb {
     size_t hash() const { return hash_of(bat, p[0], p[1], bomb); }
 };
 
-struct BombBatLaunch {
+struct BombBatCarrotRel {
     BombBatImpl * bat;
-    BombLaunchPosImpl * launch;
+    BombBatCarrotImpl * carrot;
 
-    bool operator==(BombBatLaunch const & bbl) const { return bat == bbl.bat && launch == bbl.launch; }
-    size_t hash() const { return hash_of(bat, launch); }
+    bool operator==(BombBatCarrotRel const & bbcr) const { return bat == bbcr.bat && carrot == bbcr.carrot; }
+    size_t hash() const { return hash_of(bat, carrot); }
 };
 
-struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, PersonalSpaceImpl, GraveImpl, BombBatImpl, BombImpl, BlastImpl, CharacterExplosionImpl, BombLaunchPosImpl> {
+struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, PersonalSpaceImpl, GraveImpl, BombBatImpl, BombImpl, BlastImpl, CharacterExplosionImpl, BombBatCarrotImpl> {
     ShapePtr worldBox{sensor(boxShape(20, 30, {0, 0}, 0), ct_universe)};
     ShapePtr abyssWalls[3];
     ShapePtr ground{segmentShape({-10, 2}, {10, 2})};
@@ -464,7 +460,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     Relation<CharacterShotDart> csd;
     Relation<CharacterPersonalSpace> cps;
     Relation<BatJointBomb> bjb;
-    Relation<BombBatLaunch> bbl;
+    Relation<BombBatCarrotRel> bbcr;
     brac::Stopwatch watch{false};
     std::unique_ptr<CancelTimer> text_timer;
 
@@ -826,12 +822,12 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         // TEMPORARY: hard-coded creation of bomb bat
         delay(4, [=]{
             auto STARTPOS = vec2{rand<float>(-10, 10), top + 2};
-            auto LAUNCHPOS = vec2{clamp(rand<float>(STARTPOS.x - 5, STARTPOS.x + 5), -8, 8), rand<float>(top - float(2.5), top - 5)};
-            auto & bb = m->emplace<BombBatImpl>(STARTPOS, LAUNCHPOS);
+            auto CARROTPOS = vec2{clamp(rand<float>(STARTPOS.x - 5, STARTPOS.x + 5), -8, 8), rand<float>(top - float(2.5), top - 5)};
+            auto & bb = m->emplace<BombBatImpl>(STARTPOS, CARROTPOS);
             auto & bmb = m->emplace<BombImpl>(vec2{STARTPOS.x, STARTPOS.y - float(0.8)});
             m->bjb.insert(BatJointBomb{&bb, bb.holdBomb(*bmb.body()), &bmb});
-            auto & lau = m->emplace<BombLaunchPosImpl>(LAUNCHPOS);
-            m->bbl.insert(BombBatLaunch{&bb, &lau});
+            auto & car = m->emplace<BombBatCarrotImpl>(CARROTPOS);
+            m->bbcr.insert(BombBatCarrotRel{&bb, &car});
         }).cancel(destroyed);
     }
 
@@ -891,6 +887,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     if (&bat == bjb.bat) {
                         auto pos = bat.pos();
                         delay(rand<float>(0.01, 0.2), [=]{ playCharacterExplosion(pos); });
+                        m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == &bat; });
                         m->removeWhenSpaceUnlocked(bat);
                     }
                 }
@@ -901,35 +898,13 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         }
     });
 
-    m->onCollision([=](BombBatImpl & bat, BombLaunchPosImpl & launch, cpArbiter * arb) {
+    m->onCollision([=](BombBatImpl & bat, BombBatCarrotImpl & carrot, cpArbiter * arb) {
         if (cpArbiterIsFirstContact(arb)) {
-            if (from(m->bbl) >> any([&](auto && bbl) { return bbl.bat == &bat && bbl.launch == &launch; })) {
-                // bat has reached position
-                m->bbl >> removeIf([&](auto && bbl) { return bbl.launch == &launch; });
-                m->removeWhenSpaceUnlocked(launch);
-                bat.reachedLaunchPos = true;
-
-                // get bomb
-                auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat = &bat; });
-                if (matching >> any()) {
-                    auto & bjb = (matching >> first()).get();
-
-                    // arm bomb
-                    bjb.bomb->countdown = 5; beep();
-                    bjb.bomb->tick.reset(new Ticker{1, [&]{
-                        if (bjb.bomb->countdown > 0) {
-                            --(bjb.bomb->countdown); tick();
-                            if (bjb.bomb->countdown == 0) {
-                                bjb.bat->desired_pos = vec2{bjb.bat->pos().x, 20};
-                                bjb.bat->droppedBomb = true;
-                                bjb.bomb->setForce({0, 0}); // allow application of gravity
-                                bjb.bomb->tick.reset();
-                                m->bjb.erase(bjb);
-                                bombwhistle_start();
-                            }
-                        }
-                    }});
-                }
+            if (from(m->bbcr) >> any([&](auto && bbcr) { return bbcr.bat == &bat && bbcr.carrot == &carrot; })) {
+                // bat has reached carrot
+                auto newCarrotPos = vec2{rand<float>(-8, 8), rand<float>(top - float(2.5), top - 5)};
+                carrot.setPos(newCarrotPos);
+                bat.desired_pos = newCarrotPos;
             }
         }
         return false;
@@ -939,6 +914,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         if (cpArbiterIsFirstContact(arb)) {
             if (!(from(m->bjb) >> any([&](auto && bjb) { return bjb.bat == &bat; }))) {
                 // bat is not carrying bomb, remove
+                m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == &bat; });
                 m->removeWhenSpaceUnlocked(bat);
             }
         }
@@ -948,6 +924,31 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         if (cpArbiterIsFirstContact(arb)) {
             if (from(m->bjb) >> any([&](auto && bjb) { return bjb.bomb == &bomb; })) {
                 dundundun();
+            }
+        }
+    });
+
+    m->onCollision([=](BombBatImpl & bat, NoActor<ct_startle> &, cpArbiter * arb) {
+        if (cpArbiterIsFirstContact(arb)) {
+            auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat = &bat; });
+            if (matching >> any()) {
+                auto & bjb = (matching >> first()).get();
+
+                // arm bomb
+                bjb.bomb->countdown = 10; beep();
+                bjb.bomb->tick.reset(new Ticker{1, [&]{
+                    if (bjb.bomb->countdown > 0) {
+                        --(bjb.bomb->countdown); tick();
+                        if (bjb.bomb->countdown == 0) {
+                            m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == &bat; });
+                            bjb.bat->desired_pos = vec2{bjb.bat->pos().x, 20};
+                            bjb.bomb->setForce({0, 0}); // allow application of gravity
+                            bjb.bomb->tick.reset();
+                            m->bjb.erase(bjb);
+                            bombwhistle_start();
+                        }
+                    }
+                }});
             }
         }
     });
@@ -964,7 +965,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             // if bat holding bomb, drop it
             auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat = &bat; });
             if (matching >> any()) {
-                m->bbl >> removeIf([&](auto && bbl) { return bbl.bat == &bat; });
+                m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == &bat; });
                 auto & bjb = (matching >> first()).get();
                 bjb.bomb->tick.reset();
                 bjb.bomb->countdown = 0;

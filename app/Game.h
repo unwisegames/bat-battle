@@ -79,7 +79,7 @@ struct BombBat : brac::Actor {
     enum State { flying, dying };
 };
 
-struct BombLaunchPos : brac::Actor { };
+struct BombBatCarrot : brac::Actor { };
 
 struct Bomb : brac::Actor {
     int countdown = 0;
