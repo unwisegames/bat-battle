@@ -27,7 +27,7 @@ enum Group : cpGroup { gr_bird = 1, gr_character = 2 };
 
 enum Layer : cpLayers { l_all = 1<<0, l_character = 1<<1, l_halo = 1<<2, l_play = 1<<3 };
 
-enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_attack, ct_startle };
+enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_attack, ct_startle, ct_barrier };
 
 enum BirdType { bt_grey = 0, bt_yellow = 1 };
 
@@ -769,6 +769,11 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         cpShapeSetFriction(&*m->ground, 1);
         cpShapeSetLayers(&*m->ground, l_play);
 
+        cpShapeSetCollisionType(&*m->lslope, ct_barrier);
+        cpShapeSetCollisionType(&*m->rslope, ct_barrier);
+        cpShapeSetCollisionType(&*m->lbarrier, ct_barrier);
+        cpShapeSetCollisionType(&*m->rbarrier, ct_barrier);
+
         auto createCharacter = [=](vec2 const v) {
             auto & c = m->emplace<CharacterImpl>(0, v);
             auto & ps = m->emplace<PersonalSpaceImpl>(v);
@@ -1167,6 +1172,14 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             }
             m->started = true;
         }
+    });
+
+    m->onCollision([=](DartImpl &, NoActor<ct_barrier> &) {
+        return false;
+    });
+
+    m->onCollision([=](BirdImpl &, NoActor<ct_barrier> &) {
+        return false;
     });
 
     m->onCollision([=](PersonalSpaceImpl & ps1, PersonalSpaceImpl & ps2, cpArbiter *) {
