@@ -269,7 +269,7 @@ struct BirdImpl : BodyShapes<Bird> {
     array<ConstraintPtr, 2> grabCharacter(cpBody & b) {
         auto joint = [&](vec2 const & pos) {
             auto j = newPinJoint(body(), &b, pos, {0, 0});
-            cpPinJointSetDist(&*j, 0.6);
+            cpPinJointSetDist(&*j, bird_type == bt_grey ? 0.6 : 0.5);
             return j;
         };
         hasCaptive = true;
