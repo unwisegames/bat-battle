@@ -808,7 +808,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                         BirdType bt;
                         if (m->created_grey_bats < m->params.grey_bats && m->created_yellow_bats < m->params.yellow_bats) {
                             // create either
-                            bt = randomChoice({bt_grey, bt_yellow});
+                            auto r = rand<float>(0, 1);
+                            auto greysLeft = m->params.grey_bats - m->created_grey_bats;
+                            auto yellowsLeft = m->params.yellow_bats - m->created_yellow_bats;
+                            bt = r < (greysLeft / greysLeft + yellowsLeft) ? bt_grey : bt_yellow;
                         } else {
                             if (m->created_grey_bats < m->params.grey_bats) {
                                 // create grey bat
