@@ -803,25 +803,28 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         // create birds
         m->tick.reset(new Ticker{m->params.bird_freq, [=]{
             delay(rand<float>(0, 1), [&]{
-                if (m->created_grey_bats < m->params.grey_bats || m->created_yellow_bats < m->params.yellow_bats) {
-                    if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
-                        BirdType bt;
-                        if (m->created_grey_bats < m->params.grey_bats && m->created_yellow_bats < m->params.yellow_bats) {
-                            // create either
-                            auto r = rand<float>(0, 1);
-                            auto greysLeft = m->params.grey_bats - m->created_grey_bats;
-                            auto yellowsLeft = m->params.yellow_bats - m->created_yellow_bats;
-                            bt = r < (greysLeft / greysLeft + yellowsLeft) ? bt_grey : bt_yellow;
-                        } else {
-                            if (m->created_grey_bats < m->params.grey_bats) {
-                                // create grey bat
-                                bt = bt_grey;
-                            } else if (m->created_yellow_bats < m->params.yellow_bats) {
-                                // create yellow bat
-                                bt = bt_yellow;
+                auto simul = rand<int>(1, m->params.max_simul_bats);
+                for (auto i = 0; i < simul; ++i) {
+                    if (m->created_grey_bats < m->params.grey_bats || m->created_yellow_bats < m->params.yellow_bats) {
+                        if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
+                            BirdType bt;
+                            if (m->created_grey_bats < m->params.grey_bats && m->created_yellow_bats < m->params.yellow_bats) {
+                                // create either
+                                auto r = rand<float>(0, 1);
+                                auto greysLeft = m->params.grey_bats - m->created_grey_bats;
+                                auto yellowsLeft = m->params.yellow_bats - m->created_yellow_bats;
+                                bt = r < (float(greysLeft) / float(greysLeft + yellowsLeft)) ? bt_grey : bt_yellow;
+                            } else {
+                                if (m->created_grey_bats < m->params.grey_bats) {
+                                    // created grey bat
+                                    bt = bt_grey;
+                                } else if (m->created_yellow_bats < m->params.yellow_bats) {
+                                    // create yellow bat
+                                    bt = bt_yellow;
+                                }
                             }
+                            createBird(bt);
                         }
-                        createBird(bt);
                     }
                 }
             }).cancel(destroyed);

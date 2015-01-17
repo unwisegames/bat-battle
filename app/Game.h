@@ -30,6 +30,7 @@ struct GameParams {
     int yellow_bats;
     float bird_freq = 3.5;
     float bird_speed = 1;
+    int max_simul_bats = 1;
 };
 
 struct Character : brac::Actor {
