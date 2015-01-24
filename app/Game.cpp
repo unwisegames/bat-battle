@@ -516,6 +516,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         m->params.characters    = lp[m->level - 1].characters;
         m->params.bird_speed    = lp[m->level - 1].bird_speed;
         m->params.bird_freq     = lp[m->level - 1].bird_freq;
+        m->params.max_simul_bats =  lp[m->level - 1].max_simul_bats;
 
         m->playerStats.characters   = m->params.characters;
         m->playerStats.birds        = m->params.grey_bats + m->params.yellow_bats;
@@ -706,6 +707,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     if (matching >> any()) {
                         auto & cjb = (matching >> first()).get();
                         m->cjb.erase(cjb);
+                        cjb.b->hasCaptive = false;
 
                         // send bird after new target
                         m->targets >> removeIf([&](auto && target) { return target.b == cjb.b; });
@@ -737,6 +739,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                             if (matching >> any()) {
                                 auto & cjb = (matching >> first()).get();
                                 m->cjb.erase(cjb);
+                                cjb.b->hasCaptive = false;
                                 cjb.c->rescue();
                             }
 
@@ -1052,6 +1055,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     cjb.b->dropCharacter();
                     cjb.c->rescue();
                     m->cjb.erase(cjb);
+                    cjb.b->hasCaptive = false;
                     m->score += SCORE_CHAR_RESCUED;
                     registerTextAlert(std::to_string(SCORE_CHAR_RESCUED), vec2{bird.pos().x, bird.pos().y + float(1)});
                 } else {
