@@ -89,7 +89,7 @@ void GameOver::onDraw() {
         drawValueText(s(ps_.remCharacters) + "/" + s(ps_.characters) + " SURVIVED",     {-3, -0.48}, 0.2, -0.15, -1);
         drawValueText(s(ps_.darts) + (ps_.darts == 1 ? " DART" : " DARTS") + " FIRED",  {-3, -0.91}, 0.2, -0.15, -1);
         drawValueText(s(ps_.kills) + (ps_.kills == 1 ? " BAT" : " BATS") + " KILLED",   {-3, -1.34}, 0.2, -0.15, -1);
-        drawValueText(s(int(float(ps_.hits) / float(ps_.darts) * 100)) + "% ACCURACY", {-3, -1.77}, 0.2, -0.15, -1);
+        drawValueText(s(ps_.darts > 0 ? int(float(ps_.hits) / float(ps_.darts) * 100) : 0) + "% ACCURACY", {-3, -1.77}, 0.2, -0.15, -1);
         drawValueText(formatted_time_, {-3, -2.2}, 0.2, -0.15, -1);
 
         drawHeaderText("LEVEL STAR", {1.7, 1.45}, 0.3, -0.15);
@@ -101,7 +101,7 @@ void GameOver::onDraw() {
         drawValueText(s(cs_[mom_].score()) + " POINTS",                                                         {1.57, -1},     0.25, -0.15, 0);
         drawValueText(s(cs_[mom_].dartsFired) + (cs_[mom_].dartsFired == 1 ? " DART" : " DARTS") + " FIRED",    {0, -1.6},      0.16, -0.15, -1);
         drawValueText(s(cs_[mom_].birdsKilled) + (cs_[mom_].birdsKilled == 1 ? " BAT" : " BATS") + " KILLED",   {0, -2.05},     0.16, -0.15, -1);
-        drawValueText(s(int(float(cs_[mom_].dartsHit) / float(cs_[mom_].dartsFired) * 100)) + "% ACCURACY",  {2.2, -2.05},   0.16, -0.15, -1);
+        drawValueText(s(cs_[mom_].dartsFired > 0 ? int(float(cs_[mom_].dartsHit) / float(cs_[mom_].dartsFired) * 100) : 0) + "% ACCURACY",  {2.2, -2.05},   0.16, -0.15, -1);
         drawValueText(s(cs_[mom_].rescues) + " RESCUED",                                                        {2.2, -1.6},    0.16, -0.15, -1);
 
         back->draw(pmv());
