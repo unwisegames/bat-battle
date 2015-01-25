@@ -6,7 +6,7 @@ def frame(X, Y, duration):
     return (floodfill((X, Y), scale=9, origin='center'), duration)
 
 sprites(
-    bomb=floodfill((1, 3), scale=9, origin='center'),
+    bomb=floodfill((5, 3), scale=9, origin='center'),
     blast=floodfill((3, 3), scale=30, origin='center'),
     bat=[
         loop(
