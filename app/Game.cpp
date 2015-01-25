@@ -442,6 +442,14 @@ struct BombBatCarrotRel {
     size_t hash() const { return hash_of(bat, carrot); }
 };
 
+struct CharacterDetonatedBomb {
+    CharacterImpl * c;
+    BombImpl * bomb;
+
+    bool operator==(CharacterDetonatedBomb const & cdb) const { return c == cdb.c && bomb == cdb.bomb; }
+    size_t hash() const { return hash_of(c, bomb); }
+};
+
 struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, PersonalSpaceImpl, GraveImpl, BombBatImpl, BombImpl, BlastImpl, CharacterExplosionImpl, BombBatCarrotImpl> {
     ShapePtr worldBox{sensor(boxShape(20, 30, {0, 0}, 0), ct_universe)};
     ShapePtr abyssWalls[3];
@@ -461,6 +469,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     Relation<CharacterPersonalSpace> cps;
     Relation<BatJointBomb> bjb;
     Relation<BombBatCarrotRel> bbcr;
+    Relation<CharacterDetonatedBomb> cdb;
     brac::Stopwatch watch{false};
     std::unique_ptr<CancelTimer> text_timer;
 
@@ -687,13 +696,25 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     auto detonate = [=](BombImpl & bomb) {
         bombwhistle_stop();
 
+        // who caused detonation?
+        CharacterImpl * character;
+        auto characterCausedDetonation = [&](BombImpl & bomb) {
+            auto matching = from(m->cdb) >> mutable_ref() >> where([&](auto && cdb) { return cdb.get().bomb = &bomb; });
+            if (matching >> any()) {
+                auto & cdb = (matching >> first()).get();
+                character = cdb.c;
+                return true;
+            } else {
+                return false;
+            }
+        };
+        auto characterCaused = characterCausedDetonation(bomb);
+
         auto blastPos = bomb.pos();
         auto & blast = m->emplace<BlastImpl>(blastPos);
         boom();
         delay(1.1, [&]{ m->removeWhenSpaceUnlocked(blast); }).cancel(destroyed);
         m->removeWhenSpaceUnlocked(bomb);
-
-        //auto rad = 3;
 
         auto inBlastRadius = [=](vec2 pos) {
             auto rad = 2.5;
@@ -706,6 +727,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         if (!m->levelOver()) {
             for (auto & c : m->actors<CharacterImpl>()) {
                 if (inBlastRadius(c.pos())) {
+                    if (characterCaused) ++character->stats.friendlies;
+
                     // is character currently kidnapped? If so, release character.
                     auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().c == &c; });
                     if (matching >> any()) {
@@ -738,6 +761,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 for (auto & b : m->actors<BirdImpl>()) {
                     if (b.isFlying()) {
                         if (inBlastRadius(b.pos())) {
+                            if (characterCaused) ++character->stats.birdsKilled;
+
                             // is bat carrying character? If so, rescue character.
                             auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &b; });
                             if (matching >> any()) {
@@ -745,6 +770,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                                 m->cjb.erase(cjb);
                                 cjb.b->hasCaptive = false;
                                 cjb.c->rescue();
+
+                                if (characterCaused) ++character->stats.rescues;
                             }
 
                             batKilled(b.bird_type);
@@ -898,6 +925,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     m->onPostSolve([=](DartImpl & dart, BombImpl & bomb, cpArbiter * arb) {
         if (cpArbiterIsFirstContact(arb)) {
+            ++m->playerStats.hits;
+
             // if bat is holding bomb, remove from BatJointBomb
             auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bomb = &bomb; });
             if (matching >> any()) {
@@ -915,6 +944,17 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 }
             }
             bomb.tick.reset();
+
+            // who caused the detonation?
+            auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
+                            >> where([&](auto && c) { return m->firedDart(c, dart); }));
+            if (shooter >> any()) {
+                m->cdb >> removeIf([&](auto && cdb) { return cdb.bomb == &bomb; });
+                auto & c = (shooter >> first()).get();
+                m->cdb.insert(CharacterDetonatedBomb{&c, &bomb});
+                ++c.stats.dartsHit;
+            }
+
             detonate(bomb);
             m->removeWhenSpaceUnlocked(dart);
         }
@@ -959,17 +999,19 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 // arm bomb
                 bjb.bomb->countdown = 10; beep();
                 bjb.bomb->tick.reset(new Ticker{1, [&]{
-                    if (bjb.bomb->countdown > 0) {
-                        --(bjb.bomb->countdown); tick();
-                        if (bjb.bomb->countdown == 0) {
-                            if (!m->levelOver()) {
+                    if (m->levelOver()) {
+                        bjb.bomb->tick.reset();
+                    } else {
+                        if (bjb.bomb->countdown > 0) {
+                            --(bjb.bomb->countdown); tick();
+                            if (bjb.bomb->countdown == 0) {
                                 m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == &bat; });
                                 bjb.bat->desired_pos = vec2{bjb.bat->pos().x, 20};
                                 bjb.bomb->setForce({0, 0}); // allow application of gravity
                                 m->bjb.erase(bjb);
                                 bombwhistle_start();
+                                bjb.bomb->tick.reset();
                             }
-                            bjb.bomb->tick.reset();
                         }
                     }
                 }});
@@ -984,6 +1026,16 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     m->onPostSolve([=](DartImpl & dart, BombBatImpl & bat, cpArbiter * arb) {
         if (dart.active) {
             if (cpArbiterIsFirstContact(arb)) {
+                ++m->playerStats.hits;
+
+                // increment character stats
+                auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
+                                >> where([&](auto && c) { return m->firedDart(c, dart); }));
+                if (shooter >> any()) {
+                    auto & c = (shooter >> first()).get();
+                    ++c.stats.dartsHit;
+                }
+
                 // if bat holding bomb, drop it
                 auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat = &bat; });
                 if (matching >> any()) {
@@ -995,6 +1047,14 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     bjb.bomb->setForce({0, 0}); // allow application of gravity
                     m->bjb.erase(bjb);
                     bombwhistle_start();
+
+                    // who caused the detonation?
+                    auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
+                                    >> where([&](auto && c) { return m->firedDart(c, dart); }));
+                    if (shooter >> any()) {
+                        auto & c = (shooter >> first()).get();
+                        m->cdb.insert(CharacterDetonatedBomb{&c, bjb.bomb});
+                    }
                 }
                 bat.setVel({0, 0});
                 bat.setState(BombBat::State::dying); shot();
