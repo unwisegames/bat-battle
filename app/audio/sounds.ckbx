@@ -36,4 +36,5 @@
     <sound name="charblast"     source="charblast.wav"          format="adpcm" pooled="true" />
     <sound name="boom"          source="explosion.wav"          format="adpcm" pooled="true" />
     <sound name="bombwhistle"   source="bombwhistle.wav"        format="adpcm" pooled="true" />
+    <sound name="reloading"     source="reloading.wav"          format="adpcm" pooled="true" />
 </bank>

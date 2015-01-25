@@ -175,6 +175,7 @@ public:
     brac::Signal<void()> boom;
     brac::Signal<void()> bombwhistle_start;
     brac::Signal<void()> bombwhistle_stop;
+    brac::Signal<void()> reloading;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits

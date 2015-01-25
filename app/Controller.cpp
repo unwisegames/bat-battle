@@ -94,6 +94,7 @@ void Controller::newGame(GameMode mode, int level) {
     m->game->tick       += [=] { m->audio.tick      .play(); };
     m->game->charblast  += [=] { m->audio.charblast .play(); };
     m->game->boom       += [=] { m->audio.boom      .play(); };
+    m->game->reloading  += [=] { m->audio.reloading .play(); };
 
     m->game->bombwhistle_start += [=] { m->audio.bombwhistle.play(); };
     m->game->bombwhistle_stop  += [=] { m->audio.bombwhistle.stop(); };

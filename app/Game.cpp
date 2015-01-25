@@ -524,11 +524,11 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     };
 
     auto generateLevel = [=]() {
-        m->params.grey_bats     = lp[m->level - 1].grey_bats;
-        m->params.yellow_bats   = lp[m->level - 1].yellow_bats;
-        m->params.characters    = lp[m->level - 1].characters;
-        m->params.bird_speed    = lp[m->level - 1].bird_speed;
-        m->params.bird_freq     = lp[m->level - 1].bird_freq;
+        m->params.grey_bats      =  lp[m->level - 1].grey_bats;
+        m->params.yellow_bats    =  lp[m->level - 1].yellow_bats;
+        m->params.characters     =  lp[m->level - 1].characters;
+        m->params.bird_speed     =  lp[m->level - 1].bird_speed;
+        m->params.bird_freq      =  lp[m->level - 1].bird_freq;
         m->params.max_simul_bats =  lp[m->level - 1].max_simul_bats;
 
         m->playerStats.characters   = m->params.characters;
@@ -1359,54 +1359,61 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
                   }
               });
 
-    if (character && character->readyToFire()) {
-        struct CharacterAimAndFireHandler : TouchHandler {
-            std::weak_ptr<Game> weak_self;
-            CharacterImpl * character;
-            vec2 first_p, vel;
+    if (character) {
+        if (character->readyToFire()) {
+            struct CharacterAimAndFireHandler : TouchHandler {
+                std::weak_ptr<Game> weak_self;
+                CharacterImpl * character;
+                vec2 first_p, vel;
 
-            CharacterAimAndFireHandler(Game & self, vec2 const & p, CharacterImpl * character)
-            : weak_self{self.shared_from_this()}
-            , character{character}
-            , first_p{p}
-            {
-            }
+                CharacterAimAndFireHandler(Game & self, vec2 const & p, CharacterImpl * character)
+                : weak_self{self.shared_from_this()}
+                , character{character}
+                , first_p{p}
+                {
+                }
 
-            ~CharacterAimAndFireHandler() {
-                if (auto self = weak_self.lock()) {
-                    // TODO: Return smoothly to upright posture.
-                    if (character->isAiming()) {
-                        if (vec2 const & vel = character->launchVel()) {
-                            auto & dart = self->m->emplace<DartImpl>(character->pos() + LAUNCH_OFFSET * unit(vel), vel);
-                            self->m->csd.insert(CharacterShotDart{character, &dart});
-                            character->shoot();
-                            ++self->m->playerStats.darts;
-                            self->m->score += SCORE_DART_FIRED;
-                            self->shoot();
+                ~CharacterAimAndFireHandler() {
+                    if (auto self = weak_self.lock()) {
+                        // TODO: Return smoothly to upright posture.
+                        if (character->isAiming()) {
+                            if (vec2 const & vel = character->launchVel()) {
+                                auto & dart = self->m->emplace<DartImpl>(character->pos() + LAUNCH_OFFSET * unit(vel), vel);
+                                self->m->csd.insert(CharacterShotDart{character, &dart});
+                                character->shoot();
+                                ++self->m->playerStats.darts;
+                                self->m->score += SCORE_DART_FIRED;
+                                self->shoot();
+                            }
                         }
                     }
                 }
-            }
 
-            virtual void moved(vec2 const & p, bool) {
-                if (auto self = weak_self.lock()) {
-                    if (self->m->isCaptive(*character)) {
-                        // captured; end touch event
-                        return;
-                    } else {
-                        auto v = first_p - p;
-                        character->setState(Character::State::aim);
-                        //self->aim();
-                        if (float s = length(v)) {
-                            character->aim((14 + 2 * s) / s * v);
+                virtual void moved(vec2 const & p, bool) {
+                    if (auto self = weak_self.lock()) {
+                        if (self->m->isCaptive(*character)) {
+                            // captured; end touch event
+                            return;
+                        } else {
+                            auto v = first_p - p;
+                            character->setState(Character::State::aim);
+                            //self->aim();
+                            if (float s = length(v)) {
+                                character->aim((14 + 2 * s) / s * v);
+                            }
                         }
                     }
                 }
-            }
-        };
+            };
 
-        return std::unique_ptr<TouchHandler>{new CharacterAimAndFireHandler{*this, p, character}};
+            return std::unique_ptr<TouchHandler>{new CharacterAimAndFireHandler{*this, p, character}};
+        } else {
+            if (character->state() == Character::State::reloading) {
+                reloading();
+            }
+        }
     }
+
     
     return {};
 }
