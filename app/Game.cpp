@@ -372,7 +372,7 @@ struct CharacterExplosionImpl : BodyShapes<CharacterExplosion> {
 };
 
 struct DartImpl : BodyShapes<Dart> {
-    bool active;
+    //bool active;
     ConstraintPtr p;
 
     DartImpl(cpSpace * space, vec2 const & pos, vec2 const & vel)
@@ -384,6 +384,7 @@ struct DartImpl : BodyShapes<Dart> {
 
     virtual void doUpdate(float) override {
         if (active) {
+            score += SCORE_DART_INCREMENT;
             setAngle(::brac::angle(vel()));
         }
     }
@@ -1100,8 +1101,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 ++c.stats.dartsHit;
                 if (bird.resilience == 0) {
                     ++c.stats.birdsKilled;
+                    c.stats.score += dart.score;
                     if (from(m->cjb) >> any([&](auto && cjb) { return cjb.b == &bird; })) {
                         ++c.stats.rescues;
+                        c.stats.score += SCORE_CHAR_RESCUED;
                     }
                 }
             }
@@ -1125,11 +1128,11 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     cjb.c->rescue();
                     m->cjb.erase(cjb);
                     cjb.b->hasCaptive = false;
-                    m->score += SCORE_CHAR_RESCUED;
-                    registerTextAlert(std::to_string(SCORE_CHAR_RESCUED), vec2{bird.pos().x, bird.pos().y + float(1)});
+                    m->score += dart.score + SCORE_CHAR_RESCUED;
+                    registerTextAlert(std::to_string(dart.score + SCORE_CHAR_RESCUED), vec2{bird.pos().x, bird.pos().y + float(1)});
                 } else {
-                    m->score += SCORE_BIRD_KILLED;
-                    registerTextAlert(std::to_string(SCORE_BIRD_KILLED), vec2{bird.pos().x, bird.pos().y + float(1)});
+                    m->score += dart.score; // SCORE_BIRD_KILLED;
+                    registerTextAlert(std::to_string(dart.score), vec2{bird.pos().x, bird.pos().y + float(1)});
                 }
                 
                 bird.setAngle(0);

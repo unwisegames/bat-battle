@@ -29,8 +29,8 @@ void GameOver::awardManOfMatch() {
     auto i = 0;
     auto max = 0;
     for (auto & c : cs_) {
-        if (c.score() > max) {
-            max = c.score();
+        if (c.score > max) {
+            max = (int)c.score;
             mom_ = i;
         }
         ++i;
@@ -98,7 +98,7 @@ void GameOver::onDraw() {
         SpriteProgram::draw(atlas.bathead,      pmv() * mat4::translate({-0.2, -1.95, 0})   * mat4::scale(0.25));
         SpriteProgram::draw(character.mugshot,  pmv() * mat4::translate({2, -1.5, 0})       * mat4::scale(0.4));
         SpriteProgram::draw(atlas2.target,      pmv() * mat4::translate({2, -1.95, 0})      * mat4::scale(0.3));
-        drawValueText(s(cs_[mom_].score()) + " POINTS",                                                         {1.57, -1},     0.25, -0.15, 0);
+        drawValueText(s(cs_[mom_].score) + " POINTS",                                                         {1.57, -1},     0.25, -0.15, 0);
         drawValueText(s(cs_[mom_].dartsFired) + (cs_[mom_].dartsFired == 1 ? " DART" : " DARTS") + " FIRED",    {0, -1.6},      0.16, -0.15, -1);
         drawValueText(s(cs_[mom_].birdsKilled) + (cs_[mom_].birdsKilled == 1 ? " BAT" : " BATS") + " KILLED",   {0, -2.05},     0.16, -0.15, -1);
         drawValueText(s(cs_[mom_].dartsFired > 0 ? int(float(cs_[mom_].dartsHit) / float(cs_[mom_].dartsFired) * 100) : 0) + "% ACCURACY",  {2.2, -2.05},   0.16, -0.15, -1);

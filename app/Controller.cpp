@@ -31,7 +31,6 @@ struct Controller::Members {
 
     // Persistent data
     Persistent<int> highestCompletedLevel{"highestCompletedLevel"};
-
     Persistent<int> totalPoints{"totalPoints"};
     Persistent<int> bestScore{"bestScore"};
     Persistent<int> arcGamesPlayed{"arcGamesPlayed"};
@@ -257,6 +256,12 @@ void Controller::onDraw() {
     SpriteProgram::draw(m->game->actors<Grave>                  (), pmv());
     SpriteProgram::draw(m->game->actors<Character>              (), pmv());
     SpriteProgram::draw(m->game->actors<Dart>                   (), pmv());
+
+    for (auto const & d : m->game->actors<Dart>()) {
+        if (d.active) {
+            SpriteProgram::drawText(std::to_string(d.score), font.glyphs, 0, pmv() * mat4::translate({d.pos().x, d.pos().y + float(0.6), 0}) * mat4::scale(0.3), -0.1);
+        }
+    }
 
     if (state.mode == m_play) {
         SpriteProgram::drawText("SCORE :  " + std::to_string(state.score), font.glyphs, 1,

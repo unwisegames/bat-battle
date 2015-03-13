@@ -23,6 +23,7 @@ constexpr int   SCORE_DART_FIRED = 20;
 constexpr int   SCORE_BIRD_KILLED = 100;
 constexpr int   SCORE_CHAR_RESCUED = 150;
 constexpr int   SCORE_CHAR_SURVIVED = 1000;
+constexpr int   SCORE_DART_INCREMENT = 10;
 
 struct GameParams {
     int characters;
@@ -68,7 +69,10 @@ struct Bird : brac::Actor {
     virtual bool isFlying() const = 0;
 };
 
-struct Dart : brac::Actor { };
+struct Dart : brac::Actor {
+    bool active;
+    size_t score = 10;
+};
 
 struct PersonalSpace : brac::Actor { };
 
@@ -98,12 +102,13 @@ struct CharacterStats {
     int friendlies = 0;
     int rescues = 0;
     int kidnapped = 0;
+    size_t score = 0;
 
-    int score() {
+    /*int score() {
         return dartsFired * SCORE_DART_FIRED
             + birdsKilled * SCORE_BIRD_KILLED
             + rescues * SCORE_CHAR_RESCUED;
-    }
+    }*/
 };
 
 struct PlayerStats {
