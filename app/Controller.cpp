@@ -19,6 +19,8 @@ using namespace brac;
 
 #define BRICABRAC_SHADER_NAME Sprite
 #include <bricabrac/Shader/LoadShaders.h>
+#define BRICABRAC_SHADER_NAME NormalShade
+#include <bricabrac/Shader/LoadShaders.h>
 
 struct Controller::Members {
     std::shared_ptr<Game> game;
@@ -28,6 +30,8 @@ struct Controller::Members {
     int level = 0;
     float top = 0;
     sounds audio{0.5, 1};
+    std::unique_ptr<NormalShadeProgram> shadeProgram;
+    std::vector<NormalShadeVertex> shadeBuffer;
 
     // Persistent data
     Persistent<int> highestCompletedLevel{"highestCompletedLevel"};
@@ -38,6 +42,8 @@ struct Controller::Members {
 };
 
 Controller::Controller() : m{new Controller::Members{}} {
+    m->shadeProgram.reset(new NormalShadeProgram);
+
     newGame(MODE, 1);
 }
 
@@ -213,20 +219,20 @@ bool Controller::onUpdate(float dt) {
 }
 
 void Controller::onDraw() {
-    auto const & state = m->game->state();
+    //auto const & state = m->game->state();
 
     auto sprite_context = AutoSprite<SpriteProgram>::context();
     sprite_context->tint = {1, 1, 1, 1};
 
     SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 9.1, 0}));
 
-    for (auto const & b : m->game->actors<Bird>()) {
+    /*for (auto const & b : m->game->actors<Bird>()) {
         if (b.isFlying()) {
             SpriteProgram::drawActor(b, pmv(), b.vel().x < 0 ? mat4::scale(vec3{-1, 1, 1}) : mat4::identity());
         } else {
             SpriteProgram::drawActor(b, pmv());
         }
-    }
+    }*/
 
     for (auto const & c : m->game->actors<Character>()) {
         if (c.isAiming()) {
@@ -245,7 +251,7 @@ void Controller::onDraw() {
     }
 
     SpriteProgram::draw(m->game->actors<Bomb>       (), pmv());
-    for (auto const & b : m->game->actors<Bomb>()) {
+    /*for (auto const & b : m->game->actors<Bomb>()) {
         if (b.countdown > 0) {
             SpriteProgram::drawText(std::to_string(b.countdown), font.glyphs, 0, pmv() * mat4::translate({b.pos().x, b.pos().y - float(0.2), 0}) * mat4::scale(0.25));
         }
@@ -294,7 +300,28 @@ void Controller::onDraw() {
         }
 
         SpriteProgram::drawText(state.text_alert.s, font.glyphs, 0, pmv() * mat4::translate({state.text_alert.pos.x, state.text_alert.pos.y, 0}) * mat4::scale(0.3));
-    }
+    }*/
+
+    vec4 color = {0, 0, 1, 1};
+    m->shadeBuffer.clear();
+    m->shadeBuffer.emplace_back(vec2{0, 3}, vec2{1, 0});
+    m->shadeBuffer.emplace_back(vec2{1, 3}, vec2{1, 0});
+    m->shadeBuffer.emplace_back(vec2{1, 1}, vec2{1, 0});
+    m->shadeBuffer.emplace_back(vec2{0, 1}, vec2{1, 0});
+    m->shadeBuffer.emplace_back(vec2{0, 3}, vec2{1, 0});
+
+    auto ctx = (*m->shadeProgram)();
+    ctx->tint = {1, 244/255.0f, 240/255.0f};
+    //ctx->texture = vec4{1, 1, 1, 0.5};
+    ctx->pmv = pmv();// projection() * modelview();
+
+    std::cerr << m->shadeBuffer.size() << "\n";
+
+    ctx.vs.enableArray(m->shadeBuffer.data());
+    glDrawArrays(GL_LINE_STRIP, 0, static_cast<GLsizei>(m->shadeBuffer.size()));
+    glLineWidth(4);
+    
+
 }
 
 void Controller::onResize(brac::vec2 const & size) {
