@@ -92,7 +92,7 @@ struct CharacterImpl : BodyShapes<Character> {
         spawn(new_ticker(++ticks, 5));
 
         spawn([ticks]{
-            while (ticks >> zilch) {
+            while (ticks >> poke) {
                 //std::cerr << "Update\n";
             }
         });

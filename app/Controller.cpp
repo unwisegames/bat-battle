@@ -12,6 +12,7 @@
 #include <bricabrac/Data/Persistent.h>
 #include <bricabrac/Utility/UrlOpener.h>
 #include <bricabrac/Math/Random.h>
+#include <bricabrac/Shader/ShaderUtil.h>
 
 #include <iostream>
 
@@ -31,7 +32,9 @@ struct Controller::Members {
     float top = 0;
     sounds audio{0.5, 1};
     std::unique_ptr<NormalShadeProgram> shadeProgram;
-    std::vector<NormalShadeVertex> shadeBuffer;
+
+    std::vector<NormalShadeVertex> flamebuf;
+    std::unique_ptr<Sprite> flame;
 
     // Persistent data
     Persistent<int> highestCompletedLevel{"highestCompletedLevel"};
@@ -42,7 +45,22 @@ struct Controller::Members {
 };
 
 Controller::Controller() : m{new Controller::Members{}} {
-    m->shadeProgram.reset(new NormalShadeProgram);
+    m->shadeProgram = std::make_unique<NormalShadeProgram>();
+
+    std::vector<NormalShadeVertex> flamebox;
+    m->flame = std::make_unique<Sprite>(characters.flame, ShaderUtil::AdderPTC(flamebox));
+    for (int i = 0; i <= 16; ++i) {
+        // Convert a single-segment triangle strip into multiple segments.
+        // 0 2    0 2 4 ... 32
+        // |/| => |/|/|    /
+        // 1 3    1 3 5 ... 33
+        auto top_pos = mix(flamebox[0].position, flamebox[2].position, i * (1/16.0));
+        auto bot_pos = mix(flamebox[1].position, flamebox[3].position, i * (1/16.0));
+        auto top_tc  = mix(flamebox[0].texcoord, flamebox[2].texcoord, i * (1/16.0));
+        auto bot_tc  = mix(flamebox[1].texcoord, flamebox[3].texcoord, i * (1/16.0));
+        m->flamebuf.push_back({top_pos, top_tc});
+        m->flamebuf.push_back({bot_pos, bot_tc});
+    }
 
     newGame(MODE, 1);
 }
@@ -219,20 +237,20 @@ bool Controller::onUpdate(float dt) {
 }
 
 void Controller::onDraw() {
-    //auto const & state = m->game->state();
+    auto const & state = m->game->state();
 
     auto sprite_context = AutoSprite<SpriteProgram>::context();
     sprite_context->tint = {1, 1, 1, 1};
 
     SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 9.1, 0}));
 
-    /*for (auto const & b : m->game->actors<Bird>()) {
+    for (auto const & b : m->game->actors<Bird>()) {
         if (b.isFlying()) {
             SpriteProgram::drawActor(b, pmv(), b.vel().x < 0 ? mat4::scale(vec3{-1, 1, 1}) : mat4::identity());
         } else {
             SpriteProgram::drawActor(b, pmv());
         }
-    }*/
+    }
 
     for (auto const & c : m->game->actors<Character>()) {
         if (c.isAiming()) {
@@ -251,7 +269,7 @@ void Controller::onDraw() {
     }
 
     SpriteProgram::draw(m->game->actors<Bomb>       (), pmv());
-    /*for (auto const & b : m->game->actors<Bomb>()) {
+    for (auto const & b : m->game->actors<Bomb>()) {
         if (b.countdown > 0) {
             SpriteProgram::drawText(std::to_string(b.countdown), font.glyphs, 0, pmv() * mat4::translate({b.pos().x, b.pos().y - float(0.2), 0}) * mat4::scale(0.25));
         }
@@ -278,13 +296,13 @@ void Controller::onDraw() {
 
         if (state.params.yellow_bats == 0) {
             SpriteProgram::drawText(std::to_string(state.rem_grey_bats), font.glyphs, -1, pmv() * mat4::translate({0    , m->top-1, 0}) * mat4::scale(0.5));
-            SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-0.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
+            SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-0.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
         } else {
             SpriteProgram::drawText(std::to_string(state.rem_grey_bats), font.glyphs, -1, pmv() * mat4::translate({-2, m->top-1, 0}) * mat4::scale(0.5));
-            SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-2.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
+            SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-2.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
 
             SpriteProgram::drawText(std::to_string(state.rem_yellow_bats), font.glyphs, -1, pmv() * mat4::translate({1.2, m->top-1, 0}) * mat4::scale(0.5));
-            SpriteProgram::draw(atlas.yellowbathead, pmv() * mat4::translate({0.6, m->top - float(0.7), 0}) * mat4::scale(0.8));
+            SpriteProgram::draw(atlas.yellowbathead, pmv() * mat4::translate({0.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
         }
 
         if (!m->game->state().started) {
@@ -300,28 +318,24 @@ void Controller::onDraw() {
         }
 
         SpriteProgram::drawText(state.text_alert.s, font.glyphs, 0, pmv() * mat4::translate({state.text_alert.pos.x, state.text_alert.pos.y, 0}) * mat4::scale(0.3));
-    }*/
+    }
 
-    vec4 color = {0, 0, 1, 1};
-    m->shadeBuffer.clear();
-    m->shadeBuffer.emplace_back(vec2{0, 3}, vec2{1, 0});
-    m->shadeBuffer.emplace_back(vec2{1, 3}, vec2{1, 0});
-    m->shadeBuffer.emplace_back(vec2{1, 1}, vec2{1, 0});
-    m->shadeBuffer.emplace_back(vec2{0, 1}, vec2{1, 0});
-    m->shadeBuffer.emplace_back(vec2{0, 3}, vec2{1, 0});
-
-    auto ctx = (*m->shadeProgram)();
+    auto ctx = m->shadeProgram->context();
     ctx->tint = {1, 244/255.0f, 240/255.0f};
-    //ctx->texture = vec4{1, 1, 1, 0.5};
-    ctx->pmv = pmv();// projection() * modelview();
+    ctx->texture = m->flame->activateTexture();
+    ctx->pmv = pmv() * mat4::translate({6, 4, 0});
 
-    std::cerr << m->shadeBuffer.size() << "\n";
+    for (int i = 0; i <= 16; ++i) {
+        vec2 p{0.125f * i, 0.02f * i * (16 - i)};
+        auto j = i + 1;
+        vec2 q{0.125f * j, 0.02f * j * (16 - j)};
+        vec2 n = cross(unit(q - p));
+        m->flamebuf[2 * i].position = p + 0.1 * n;
+        m->flamebuf[2 * i + 1].position = p - 0.1 * n;
+    }
 
-    ctx.vs.enableArray(m->shadeBuffer.data());
-    glDrawArrays(GL_LINE_STRIP, 0, static_cast<GLsizei>(m->shadeBuffer.size()));
-    glLineWidth(4);
-    
-
+    ctx.vs.enableArray(m->flamebuf.data());
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(m->flamebuf.size()));
 }
 
 void Controller::onResize(brac::vec2 const & size) {
