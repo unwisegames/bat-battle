@@ -11,6 +11,7 @@ constexpr float GRAVITY = -30;
 constexpr float LAUNCH_OFFSET = 1;
 constexpr float WORLD_GRAVITY = -10;
 constexpr float ATTACK_LINE_Y = 6;
+constexpr int   DART_TRAIL_SEGMENTS = 10;
 
 // Temporary: move to GameParams struct and passed as param to newGame?
 constexpr int   CHARACTERS = 2;
@@ -72,6 +73,8 @@ struct Bird : brac::Actor {
 struct Dart : brac::Actor {
     bool active;
     size_t score = 10;
+    std::array<brac::vec2, DART_TRAIL_SEGMENTS + 1> trail;
+    float dt = 0;
 };
 
 struct PersonalSpace : brac::Actor { };

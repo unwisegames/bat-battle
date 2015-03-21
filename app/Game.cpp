@@ -372,7 +372,6 @@ struct CharacterExplosionImpl : BodyShapes<CharacterExplosion> {
 };
 
 struct DartImpl : BodyShapes<Dart> {
-    //bool active;
     ConstraintPtr p;
 
     DartImpl(cpSpace * space, vec2 const & pos, vec2 const & vel)
@@ -380,13 +379,23 @@ struct DartImpl : BodyShapes<Dart> {
     {
         setVel(vel);
         active = true;
+
+        for(int i = 0; i <= DART_TRAIL_SEGMENTS; ++i) {
+            trail[i] = pos;
+        }
     }
 
-    virtual void doUpdate(float) override {
+    virtual void doUpdate(float _dt) override {
         if (active) {
             score += SCORE_DART_INCREMENT;
             setAngle(::brac::angle(vel()));
+
+            for (int i = 0; i < DART_TRAIL_SEGMENTS; ++i) {
+                trail[i] = trail[i + 1];
+            }
+            trail[DART_TRAIL_SEGMENTS] = pos();
         }
+        dt += _dt;
     }
 
     void attach(cpBody & b) { }

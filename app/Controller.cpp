@@ -49,15 +49,15 @@ Controller::Controller() : m{new Controller::Members{}} {
 
     std::vector<NormalShadeVertex> flamebox;
     m->flame = std::make_unique<Sprite>(characters.flame, ShaderUtil::AdderPTC(flamebox));
-    for (int i = 0; i <= 16; ++i) {
+    for (int i = 0; i <= DART_TRAIL_SEGMENTS; ++i) {
         // Convert a single-segment triangle strip into multiple segments.
         // 0 2    0 2 4 ... 32
         // |/| => |/|/|    /
         // 1 3    1 3 5 ... 33
-        auto top_pos = mix(flamebox[0].position, flamebox[2].position, i * (1/16.0));
-        auto bot_pos = mix(flamebox[1].position, flamebox[3].position, i * (1/16.0));
-        auto top_tc  = mix(flamebox[0].texcoord, flamebox[2].texcoord, i * (1/16.0));
-        auto bot_tc  = mix(flamebox[1].texcoord, flamebox[3].texcoord, i * (1/16.0));
+        auto top_pos = mix(flamebox[0].position, flamebox[2].position, i * (1/float(DART_TRAIL_SEGMENTS)));
+        auto bot_pos = mix(flamebox[1].position, flamebox[3].position, i * (1/float(DART_TRAIL_SEGMENTS)));
+        auto top_tc  = mix(flamebox[0].texcoord, flamebox[2].texcoord, i * (1/float(DART_TRAIL_SEGMENTS)));
+        auto bot_tc  = mix(flamebox[1].texcoord, flamebox[3].texcoord, i * (1/float(DART_TRAIL_SEGMENTS)));
         m->flamebuf.push_back({top_pos, top_tc});
         m->flamebuf.push_back({bot_pos, bot_tc});
     }
@@ -279,12 +279,33 @@ void Controller::onDraw() {
     SpriteProgram::draw(m->game->actors<CharacterExplosion>     (), pmv());
     SpriteProgram::draw(m->game->actors<Grave>                  (), pmv());
     SpriteProgram::draw(m->game->actors<Character>              (), pmv());
-    SpriteProgram::draw(m->game->actors<Dart>                   (), pmv());
 
     for (auto const & d : m->game->actors<Dart>()) {
         if (d.active) {
             SpriteProgram::drawText(std::to_string(d.score), font.glyphs, 0, pmv() * mat4::translate({d.pos().x, d.pos().y + float(0.6), 0}) * mat4::scale(0.3), -0.1);
+
+            std::vector<NormalShadeVertex> buf;
+            auto ctx = m->shadeProgram->context();
+
+            ctx->tint = {1, clamp(1 - d.dt * 0.5f, 0, 1), 0};
+            ctx->texture = m->flame->activateTexture();
+            ctx->pmv = pmv();
+
+            size_t ii = 0;
+            std::array<vec2, DART_TRAIL_SEGMENTS + 1> tmp = d.trail;
+            for (int i = 0; i <= DART_TRAIL_SEGMENTS; ++i) {
+                vec2 p = tmp[i];
+                vec2 q = tmp[i + 1];
+                vec2 n = cross(unit(q - p));
+                buf.push_back({p + 0.13 * n, m->flamebuf[ii].texcoord});
+                buf.push_back({p - 0.13 * n, m->flamebuf[ii + 1].texcoord});
+                ii = ii + 2;
+            }
+
+            ctx.vs.enableArray(buf.data());
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(buf.size()));
         }
+        SpriteProgram::drawActor(d, pmv());
     }
 
     if (state.mode == m_play) {
@@ -317,10 +338,10 @@ void Controller::onDraw() {
             }
         }
 
-        SpriteProgram::drawText(state.text_alert.s, font.glyphs, 0, pmv() * mat4::translate({state.text_alert.pos.x, state.text_alert.pos.y, 0}) * mat4::scale(0.3));
+        SpriteProgram::drawText(state.text_alert.s, font.glyphs, 0, pmv() * mat4::translate({state.text_alert.pos.x, state.text_alert.pos.y, 0}) * mat4::scale(0.3), -0.1);
     }
 
-    auto ctx = m->shadeProgram->context();
+    /*auto ctx = m->shadeProgram->context();
     ctx->tint = {1, 244/255.0f, 240/255.0f};
     ctx->texture = m->flame->activateTexture();
     ctx->pmv = pmv() * mat4::translate({6, 4, 0});
@@ -335,7 +356,7 @@ void Controller::onDraw() {
     }
 
     ctx.vs.enableArray(m->flamebuf.data());
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(m->flamebuf.size()));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(m->flamebuf.size()));*/
 }
 
 void Controller::onResize(brac::vec2 const & size) {
