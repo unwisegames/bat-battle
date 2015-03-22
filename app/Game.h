@@ -6,6 +6,7 @@
 
 #include <bricabrac/Game/GameActor.h>
 #include <bricabrac/Utility/Signal.h>
+#include <bricabrac/Game/Timer.h>
 
 constexpr float GRAVITY = -30;
 constexpr float LAUNCH_OFFSET = 1;
@@ -131,6 +132,10 @@ struct PlayerStats {
 struct TextAlert {
     std::string s;
     brac::vec2 pos;
+    float scale;
+    std::unique_ptr<brac::CancelTimer> hide;
+    float beginfade = 0;
+    float alpha = 1;
 };
 
 enum GameMode { m_menu, m_play, m_arcade, m_buzzer };
@@ -139,6 +144,7 @@ constexpr GameMode MODE = m_menu;
 class Game : public brac::GameBase, public std::enable_shared_from_this<Game> {
 public:
     struct State {
+        float dt = 0;
         bool started = false;
         bool level_passed = false;
         bool level_failed = false;
@@ -153,7 +159,7 @@ public:
         size_t rem_chars;
         PlayerStats playerStats;
         std::vector<CharacterStats> characterStats;
-        TextAlert text_alert;
+        std::vector<TextAlert> alerts;
         GameParams params;
     };
 

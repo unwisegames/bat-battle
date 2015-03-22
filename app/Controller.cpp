@@ -241,6 +241,7 @@ void Controller::onDraw() {
 
     auto sprite_context = AutoSprite<SpriteProgram>::context();
     sprite_context->tint = {1, 1, 1, 1};
+    sprite_context->alpha = 1;
 
     SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 9.1, 0}));
 
@@ -326,9 +327,9 @@ void Controller::onDraw() {
             SpriteProgram::draw(atlas.yellowbathead, pmv() * mat4::translate({0.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
         }
 
-        if (!m->game->state().started) {
+        /*if (!m->game->state().started) {
             SpriteProgram::drawText("LEVEL " + std::to_string(m->level), font.glyphs, 0, pmv() * mat4::translate({0, m->top - 5, 0}), -0.1);
-        }
+        }*/
 
         if (m->game->state().show_char_score) {
             for (auto const & c : m->game->actors<Character>()) {
@@ -338,7 +339,14 @@ void Controller::onDraw() {
             }
         }
 
-        SpriteProgram::drawText(state.text_alert.s, font.glyphs, 0, pmv() * mat4::translate({state.text_alert.pos.x, state.text_alert.pos.y, 0}) * mat4::scale(0.3), -0.1);
+        for (auto const & a : state.alerts) {
+            if (a.beginfade > 0) {
+                float al = clamp(1.0f - (state.dt - a.beginfade) * 2, 0, 1);
+                sprite_context->alpha = al;
+            }
+            SpriteProgram::drawText(a.s, font.glyphs, 0, pmv() * mat4::translate({a.pos.x, a.pos.y, 0}) * mat4::scale(a.scale), -0.1);
+            sprite_context->alpha = 1;
+        }
     }
 
     /*auto ctx = m->shadeProgram->context();

@@ -473,13 +473,13 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     size_t created_grey_bats = 0;
     size_t created_yellow_bats = 0;
     std::unique_ptr<Ticker> tick;
-    Relation<CharacterJointBird> cjb;
-    Relation<BirdTargetCharacter> targets;
-    Relation<CharacterShotDart> csd;
-    Relation<CharacterPersonalSpace> cps;
-    Relation<BatJointBomb> bjb;
-    Relation<BombBatCarrotRel> bbcr;
-    Relation<CharacterDetonatedBomb> cdb;
+    Relation<CharacterJointBird>        cjb;
+    Relation<BirdTargetCharacter>       targets;
+    Relation<CharacterShotDart>         csd;
+    Relation<CharacterPersonalSpace>    cps;
+    Relation<BatJointBomb>              bjb;
+    Relation<BombBatCarrotRel>          bbcr;
+    Relation<CharacterDetonatedBomb>    cdb;
     brac::Stopwatch watch{false};
     std::unique_ptr<CancelTimer> text_timer;
 
@@ -518,18 +518,21 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
         return level_passed || level_failed;
     }
 
+    void alertsHousekeeping() {
+        alerts.erase(std::remove_if(alerts.begin(), alerts.end(), [&](const TextAlert & a){ return clamp(1.0f - (dt - a.beginfade) * 2, 0, 1) == 0; }), alerts.end());
+    }
+
 };
 
 Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, m{new Members{st}} {
     m->mode = mode;
     m->level = level;
 
-    auto registerTextAlert = [=](std::string s, vec2 pos) {
-        m->text_alert.s = s;
-        m->text_alert.pos = pos;
-        m->text_timer.reset(new CancelTimer(delay(1, [=]{ m->text_alert.s = ""; })));
-        m->text_timer->cancel(destroyed);
-
+    auto registerTextAlert = [=](std::string s, vec2 pos, float duration, float scale) {
+        m->alertsHousekeeping();
+        auto it = m->alerts.begin();
+        auto a = m->alerts.insert(it, {s, pos, scale});
+        a->hide.reset(new CancelTimer(delay(duration, [=]{ a->beginfade = m->dt; })));
         alert();
     };
 
@@ -798,6 +801,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     if (mode == m_menu) {
         delay(0, [=]{ show_menu(); }).cancel(destroyed);
     } else {
+        registerTextAlert("LEVEL " + std::to_string(level), {0, top - 5}, 3.5, 1);
+
         m->setGravity({0, WORLD_GRAVITY});
         auto wall = [=] (vec2 v1, vec2 v2) { return m->sensor(m->segmentShape(v1, v2), ct_abyss); };
         m->abyssWalls[0] = wall({-10, top}, {-10, -10});  // left
@@ -1138,10 +1143,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     m->cjb.erase(cjb);
                     cjb.b->hasCaptive = false;
                     m->score += dart.score + SCORE_CHAR_RESCUED;
-                    registerTextAlert(std::to_string(dart.score + SCORE_CHAR_RESCUED), vec2{bird.pos().x, bird.pos().y + float(1)});
+                    registerTextAlert(std::to_string(dart.score + SCORE_CHAR_RESCUED), vec2{bird.pos().x, bird.pos().y + float(1)}, 1, 0.3);
                 } else {
                     m->score += dart.score; // SCORE_BIRD_KILLED;
-                    registerTextAlert(std::to_string(dart.score), vec2{bird.pos().x, bird.pos().y + float(1)});
+                    registerTextAlert(std::to_string(dart.score), vec2{bird.pos().x, bird.pos().y + float(1)}, 1, 0.3);
                 }
                 
                 bird.setAngle(0);
@@ -1430,6 +1435,6 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
     return {};
 }
 
-void Game::doUpdate(float dt) { m->update(dt); }
+void Game::doUpdate(float dt) { m->update(dt); m->dt += dt; }
 
 void Game::getActors(size_t actorId, void * buf) const { m->getActorsForController(actorId, buf); }
