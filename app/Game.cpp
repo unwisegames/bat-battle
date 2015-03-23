@@ -530,8 +530,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     auto registerTextAlert = [=](std::string s, vec2 pos, float duration, float scale) {
         m->alertsHousekeeping();
-        auto it = m->alerts.begin();
-        auto a = m->alerts.insert(it, {s, pos, scale});
+        auto a = m->alerts.insert(m->alerts.begin(), {s, pos, scale});
         a->hide.reset(new CancelTimer(delay(duration, [=]{ a->beginfade = m->dt; })));
         alert();
     };
@@ -1435,6 +1434,9 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
     return {};
 }
 
-void Game::doUpdate(float dt) { m->update(dt); m->dt += dt; }
+void Game::doUpdate(float dt) {
+    m->update(dt);
+    m->dt += dt;
+}
 
 void Game::getActors(size_t actorId, void * buf) const { m->getActorsForController(actorId, buf); }

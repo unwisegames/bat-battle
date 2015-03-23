@@ -288,7 +288,7 @@ void Controller::onDraw() {
             std::vector<NormalShadeVertex> buf;
             auto ctx = m->shadeProgram->context();
 
-            ctx->tint = {1, clamp(1 - d.dt * 0.5f, 0, 1), 0};
+            ctx->tint = {1, clamp(0.6f - d.dt * 0.2f, 0, 0.6f), 0};
             ctx->texture = m->flame->activateTexture();
             ctx->pmv = pmv();
 

@@ -36,7 +36,7 @@ varying mediump vec2 v_texcoord;
 void main() {
     mediump vec4 tex = texture2D(texture, v_texcoord);
     mediump vec3 normal = 2.0 * tex.xyz - 1.0;
-    gl_FragColor = vec4(tint, 1.0) * tex;// * 0.5; //v_alpha;
+    gl_FragColor = vec4(tint, 1.0) * tex * 0.8; //v_alpha;
 }
 
 #endif // BRICABRAC_HOSTED
