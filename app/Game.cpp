@@ -18,11 +18,11 @@
 
 #include <bricabrac/Data/Relation.h>
 #include <bricabrac/Game/GameActorImpl.h>
-#include <bricabrac/Game/Timer.h>
 #include <bricabrac/Logging/Logging.h>
 #include <bricabrac/Math/MathUtil.h>
 #include <bricabrac/Math/Random.h>
 #include <bricabrac/Thread/quantize.h>
+#include <bricabrac/Utility/Timer.h>
 
 #include <math.h>
 #include <unordered_set>
@@ -119,10 +119,7 @@ struct CharacterImpl : BodyShapes<Character> {
 
         stats.mugshot = *char_defs[type].mug;
 
-        reader<> ticks;
-        spawn(new_ticker(++ticks, 5));
-
-        spawn([ticks]{
+        spawn([ticks = chan::spawn_quantize(update_me(), 5.0)]{
             while (ticks >> poke) {
                 //std::cerr << "Update\n";
             }
@@ -130,7 +127,7 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 
     virtual bool isAiming() const override {
-        return !!launchVel_ && state() == Character::State::aim;
+        return launchVel_ && state() == Character::State::aim;
     }
 
     virtual bool isDead() const override {
@@ -194,11 +191,11 @@ struct CharacterImpl : BodyShapes<Character> {
         }
         if (!isDead()) {
             setState(Character::State::yell);
-            delay(1, [=] {
+            update_me(spawn_after(1, [this]{
                 if (state() == Character::State::yell) {
                     setState(Character::State::crying);
                 }
-            }).cancel(destroyed);
+            }));
         }
     }
 
@@ -363,7 +360,7 @@ struct BombBatCarrotImpl : BodyShapes<BombBatCarrot> {
 };
 
 struct BombImpl : BodyShapes<Bomb> {
-    std::unique_ptr<Ticker> tick;
+    writer<> ticker;
 
     BombImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), bomb.bomb, gr_bird, l_play}
@@ -503,7 +500,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     ShapePtr rslope{segmentShape({9, 2.5}, {10, 4})};
     size_t created_grey_bats = 0;
     size_t created_yellow_bats = 0;
-    std::unique_ptr<Ticker> tick;
+    writer<> ticker;
     Relation<CharacterJointBird>        cjb;
     Relation<BirdTargetCharacter>       targets;
     Relation<CharacterShotDart>         csd;
@@ -549,7 +546,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     }
 
     void alertsHousekeeping() {
-        alerts.erase(std::remove_if(alerts.begin(), alerts.end(), [&](const TextAlert & a){ return clamp(1.0f - (dt - a.beginfade) * 2, 0, 1) == 0; }), alerts.end());
+        alerts.erase(std::remove_if(alerts.begin(), alerts.end(), [&](const TextAlert & a){ return !a.alpha; }), alerts.end());
     }
 
 };
@@ -561,7 +558,13 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     auto registerTextAlert = [=](std::string s, vec2 pos, float duration, float scale) {
         m->alertsHousekeeping();
         auto a = m->alerts.insert(m->alerts.begin(), {s, pos, scale});
-        a->hide.reset(new CancelTimer(delay(duration, [=]{ a->beginfade = m->dt; })));
+
+        m->update_me(spawn_consumer<double>([=](auto r) {
+            if (sleep(duration, r) <= 0) {
+                for (double dt; r >> dt && (a->alpha -= 2 * dt) > 0;) { }
+                a->alpha = 0;
+            }
+        }));
         alert();
     };
 
@@ -570,7 +573,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         m->params.yellow_bats    =  lp[m->level - 1].yellow_bats;
         m->params.characters     =  lp[m->level - 1].characters;
         m->params.bird_speed     =  lp[m->level - 1].bird_speed;
-        m->params.bird_freq      =  lp[m->level - 1].bird_freq;
+        m->params.bird_interval  =  lp[m->level - 1].bird_interval;
         m->params.max_simul_bats =  lp[m->level - 1].max_simul_bats;
 
         m->playerStats.characters   = m->params.characters;
@@ -696,10 +699,16 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         --m->rem_chars;
         if (m->rem_chars == 0) {
             m->level_failed = true;
-            delay(0.5, [=] { tension_stop(); lose(); }).cancel(destroyed);
-            delay(2.5, [=] {
-                gameOver(false);
-            }).cancel(destroyed);
+
+            spawn([=, sleep = sleeper(m->update_me())]{
+                if (sleep(0.5)) {
+                    tension_stop();
+                    lose();
+                    if (sleep(2)) {
+                        gameOver(false);
+                    }
+                }
+            });
         }
     };
 
@@ -720,19 +729,26 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     c.celebrate();
                 }
                 tension_stop();
-                delay(1, [=]{
-                    char_score();
-                    m->show_char_score = true;
-                }).cancel(destroyed);
-                delay(4, [=]{ gameOver(true); }).cancel(destroyed);
+
+                spawn([=, sleep = sleeper(m->update_me())]{
+                    if (sleep(1)) {
+                        char_score();
+                        m->show_char_score = true;
+                        if (sleep(2)) {
+                            gameOver(true);
+                        }
+                    }
+                });
             }
         }
     };
 
     auto playCharacterExplosion = [=](vec2 pos) {
-        auto & expl = m->emplace<CharacterExplosionImpl>(pos);
+        auto expl = &m->emplace<CharacterExplosionImpl>(pos);
         charblast();
-        delay(1.1, [&]{ m->removeWhenSpaceUnlocked(expl); }).cancel(destroyed);
+        m->update_me(spawn_after(1.1, [=]{
+            m->removeWhenSpaceUnlocked(*expl);
+        }));
     };
 
     auto detonate = [=](BombImpl & bomb) {
@@ -753,23 +769,23 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         auto characterCaused = characterCausedDetonation(bomb);
 
         auto blastPos = bomb.pos();
-        auto & blast = m->emplace<BlastImpl>(blastPos);
+        auto blast = &m->emplace<BlastImpl>(blastPos);
         boom();
-        delay(1.1, [&]{ m->removeWhenSpaceUnlocked(blast); }).cancel(destroyed);
+        m->update_me(spawn_after(1.1, [=]{
+            m->removeWhenSpaceUnlocked(*blast);
+        }));
         m->removeWhenSpaceUnlocked(bomb);
 
         auto inBlastRadius = [=](vec2 pos) {
-            auto rad = 2.5;
-
-            // TEMPORARY: bounding box for now
-            return (pos.x > blastPos.x - rad && pos.x < blastPos.x + rad
-                    && pos.y > blastPos.y - rad && pos.y < blastPos.y + rad);
+            return length_sq(pos - blastPos) < 2.5;
         };
 
         if (!m->levelOver()) {
             for (auto & c : m->actors<CharacterImpl>()) {
                 if (inBlastRadius(c.pos())) {
-                    if (characterCaused) ++character->stats.friendlies;
+                    if (characterCaused) {
+                        ++character->stats.friendlies;
+                    }
 
                     // is character currently kidnapped? If so, release character.
                     auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().c == &c; });
@@ -789,7 +805,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                         }
                     }
                     auto pos = c.pos();
-                    delay(rand<float>(0.01, 0.2), [=]{ playCharacterExplosion(pos); });
+                    m->update_me(spawn_after(rand<double>(0.01, 0.2), [=]{
+                        playCharacterExplosion(pos);
+                    }));
                     removeCharacter(c);
                     retargetBirdsChasingMe(c);
 
@@ -803,7 +821,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 for (auto & b : m->actors<BirdImpl>()) {
                     if (b.isFlying()) {
                         if (inBlastRadius(b.pos())) {
-                            if (characterCaused) ++character->stats.birdsKilled;
+                            if (characterCaused) {
+                                ++character->stats.birdsKilled;
+                            }
 
                             // is bat carrying character? If so, rescue character.
                             auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &b; });
@@ -818,7 +838,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
                             batKilled(b.bird_type);
                             auto pos = b.pos();
-                            delay(rand<float>(0.01, 0.2), [=]{ playCharacterExplosion(pos); });
+                            m->update_me(spawn_after(rand<double>(0.01, 0.2), [=]{
+                                playCharacterExplosion(pos);
+                            }));
                             m->removeWhenSpaceUnlocked(b);
                         }
                     }
@@ -828,29 +850,31 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     };
     
     if (mode == m_menu) {
-        delay(0, [=]{ show_menu(); }).cancel(destroyed);
+        m->update_me(spawn_after(0, [=]{
+            show_menu();
+        }));
     } else {
         registerTextAlert("LEVEL " + std::to_string(level), {0, top - 5}, 3.5, 1);
 
         m->setGravity({0, WORLD_GRAVITY});
-        auto wall = [=] (vec2 v1, vec2 v2) { return m->sensor(m->segmentShape(v1, v2), ct_abyss); };
-        m->abyssWalls[0] = wall({-10, top}, {-10, -10});  // left
-        m->abyssWalls[1] = wall({10,  top}, {10,  -10});  // right
-        m->abyssWalls[2] = wall({-10, top}, {10,  top});  // top
-        m->startleLine = m->sensor(m->segmentShape({-10, top - 1}, {10, top - 1}), ct_startle);
+        auto seg = [=] (vec2 v1, vec2 v2, CollisionType ct) { return m->sensor(m->segmentShape(v1, v2), ct); };
+        m->abyssWalls[0] = seg({-10, top}, {-10, -10}, ct_abyss);  // left
+        m->abyssWalls[1] = seg({10,  top}, {10,  -10}, ct_abyss);  // right
+        m->abyssWalls[2] = seg({-10, top}, {10,  top}, ct_abyss);  // top
+        m->startleLine = seg({-10, top - 1}, {10, top - 1}, ct_startle);
         m->back->setY(top - 0.8);
         m->restart->setY(top - 0.8);
 
         generateLevel();
 
-        cpShapeSetCollisionType(&*m->ground, ct_ground);
-        cpShapeSetFriction(&*m->ground, 1);
-        cpShapeSetLayers(&*m->ground, l_play);
+        cpShapeSetCollisionType (&*m->ground, ct_ground);
+        cpShapeSetFriction      (&*m->ground, 1);
+        cpShapeSetLayers        (&*m->ground, l_play);
 
-        cpShapeSetCollisionType(&*m->lslope, ct_barrier);
-        cpShapeSetCollisionType(&*m->rslope, ct_barrier);
-        cpShapeSetCollisionType(&*m->lbarrier, ct_barrier);
-        cpShapeSetCollisionType(&*m->rbarrier, ct_barrier);
+        cpShapeSetCollisionType (&*m->lslope, ct_barrier);
+        cpShapeSetCollisionType (&*m->rslope, ct_barrier);
+        cpShapeSetCollisionType (&*m->lbarrier, ct_barrier);
+        cpShapeSetCollisionType (&*m->rbarrier, ct_barrier);
 
         auto createCharacter = [=](vec2 const v, int i) {
             auto & c = m->emplace<CharacterImpl>(i, v);
@@ -881,45 +905,35 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         createCharacters();
 
         // create birds
-        m->tick.reset(new Ticker{m->params.bird_freq, [=]{
-            delay(rand<float>(0, 1), [&]{
-                auto simul = rand<int>(1, m->params.max_simul_bats);
-                for (auto i = 0; i < simul; ++i) {
-                    if (m->created_grey_bats < m->params.grey_bats || m->created_yellow_bats < m->params.yellow_bats) {
-                        if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
-                            BirdType bt;
-                            if (m->created_grey_bats < m->params.grey_bats && m->created_yellow_bats < m->params.yellow_bats) {
-                                // create either
-                                auto r = rand<float>(0, 1);
-                                auto greysLeft = m->params.grey_bats - m->created_grey_bats;
-                                auto yellowsLeft = m->params.yellow_bats - m->created_yellow_bats;
-                                bt = r < (float(greysLeft) / float(greysLeft + yellowsLeft)) ? bt_grey : bt_yellow;
-                            } else {
-                                if (m->created_grey_bats < m->params.grey_bats) {
-                                    // created grey bat
-                                    bt = bt_grey;
-                                } else if (m->created_yellow_bats < m->params.yellow_bats) {
-                                    // create yellow bat
-                                    bt = bt_yellow;
-                                }
+        m->ticker = {};
+        spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker)), interval = m->params.bird_interval]{
+            while (sleep(interval)) {
+                m->update_me(spawn_after(rand<double>(0, 1), [&]{
+                    for (auto i = rand<int>(1, m->params.max_simul_bats); i--;) {
+                        auto greysLeft = m->params.grey_bats - m->created_grey_bats;
+                        auto yellowsLeft = m->params.yellow_bats - m->created_yellow_bats;
+                        if (greysLeft || yellowsLeft) {
+                            if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
+                                createBird(!greysLeft ? bt_yellow :
+                                           !yellowsLeft ? bt_grey :
+                                           rand<long>(0, greysLeft + yellowsLeft - 1) < greysLeft ? bt_grey : bt_yellow);
                             }
-                            createBird(bt);
                         }
                     }
-                }
-            }).cancel(destroyed);
-        }});
+                }));
+            }
+        });
 
         // TEMPORARY: hard-coded creation of bomb bat
-        delay(4, [=]{
+        m->update_me(spawn_after(4, [=]{
             auto STARTPOS = vec2{rand<float>(-10, 10), top + 2};
-            auto CARROTPOS = vec2{clamp(rand<float>(STARTPOS.x - 5, STARTPOS.x + 5), -8, 8), rand<float>(top - float(2.5), top - 5)};
+            auto CARROTPOS = vec2{clamp(rand<float>(STARTPOS.x - 5, STARTPOS.x + 5), -8, 8), rand<float>(top - 2.5, top - 5)};
             auto & bb = m->emplace<BombBatImpl>(STARTPOS, CARROTPOS);
-            auto & bmb = m->emplace<BombImpl>(vec2{STARTPOS.x, STARTPOS.y - float(0.8)});
+            auto & bmb = m->emplace<BombImpl>(STARTPOS - vec2{0, 0.8});
             m->bjb.insert(BatJointBomb{&bb, bb.holdBomb(*bmb.body()), &bmb});
             auto & car = m->emplace<BombBatCarrotImpl>(CARROTPOS);
             m->bbcr.insert(BombBatCarrotRel{&bb, &car});
-        }).cancel(destroyed);
+        }));
     }
 
     m->onCollision([=](BirdImpl & bird, CharacterImpl & character, cpArbiter * arb) {
@@ -942,10 +956,15 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             for (auto & shape : character.shapes()) cpShapeSetGroup(&*shape, gr_bird);
 
             if (!m->anybodyLeft()) {
-                delay(0.5, [=] { tension_stop(); lose(); }).cancel(destroyed);
-                delay(2.5, [=] {
-                    gameOver(false);
-                }).cancel(destroyed);
+                spawn([=, sleep = sleeper(m->update_me())]{
+                    if (sleep(0.5)) {
+                        tension_stop();
+                        lose();
+                        if (sleep(2) <= 0) {
+                            gameOver(false);
+                        }
+                    }
+                });
             } else {
                 // send other birds after new target
                 from(m->targets) >> for_each([&](auto && targets) {
@@ -983,13 +1002,15 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 for (auto & bat : m->actors<BombBatImpl>()) {
                     if (&bat == bjb.bat) {
                         auto pos = bat.pos();
-                        delay(rand<float>(0.01, 0.2), [=]{ playCharacterExplosion(pos); });
+                        m->update_me(spawn_after(rand<double>(0.01, 0.2), [=]{
+                            playCharacterExplosion(pos);
+                        }));
                         m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == &bat; });
                         m->removeWhenSpaceUnlocked(bat);
                     }
                 }
             }
-            bomb.tick.reset();
+            bomb.ticker = {};
 
             // who caused the detonation?
             auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
@@ -1040,27 +1061,20 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         if (cpArbiterIsFirstContact(arb)) {
             auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat = &bat; });
             if (matching >> any()) {
-                auto & bjb = (matching >> first()).get();
+                auto bjb = &(matching >> first()).get();
 
                 // arm bomb
-                bjb.bomb->countdown = 10; beep();
-                bjb.bomb->tick.reset(new Ticker{1, [&]{
-                    if (m->levelOver()) {
-                        bjb.bomb->tick.reset();
-                    } else {
-                        if (bjb.bomb->countdown > 0) {
-                            --(bjb.bomb->countdown); tick();
-                            if (bjb.bomb->countdown == 0) {
-                                m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == &bat; });
-                                bjb.bat->desired_pos = vec2{bjb.bat->pos().x, 20};
-                                bjb.bomb->setForce({0, 0}); // allow application of gravity
-                                m->bjb.erase(bjb);
-                                bombwhistle_start();
-                                bjb.bomb->tick.reset();
-                            }
-                        }
+                bjb->bomb->countdown = 10; beep();
+                spawn([=, bat = &bat, ticker = chan::spawn_quantize(bjb->bomb->update_me(), 1.0)]{
+                    while (ticker >> poke && --bjb->bomb->countdown) {
+                        tick();
                     }
-                }});
+                    m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == bat; });
+                    bjb->bat->desired_pos = vec2{bjb->bat->pos().x, 20};
+                    bjb->bomb->setForce({0, 0}); // allow application of gravity
+                    m->bjb.erase(*bjb);
+                    bombwhistle_start();
+                });
             }
         }
     });
@@ -1087,7 +1101,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 if (matching >> any()) {
                     m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == &bat; });
                     auto & bjb = (matching >> first()).get();
-                    bjb.bomb->tick.reset();
+                    bjb.bomb->ticker = {};
                     bjb.bomb->countdown = 0;
                     bjb.bomb->setVel({0, 0});
                     bjb.bomb->setForce({0, 0}); // allow application of gravity
@@ -1104,7 +1118,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 }
                 bat.setVel({0, 0});
                 bat.setState(BombBat::State::dying); shot();
-                delay(0.6, [&]{ m->removeWhenSpaceUnlocked(bat); }).cancel(destroyed);
+                m->update_me(spawn_after(0.6, [=, bat = &bat]{
+                    m->removeWhenSpaceUnlocked(*bat);
+                }));
                 m->removeWhenSpaceUnlocked(dart);
             }
         }
@@ -1163,7 +1179,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
                 bird.setState(Bird::State::dying);
 
-                delay(0.2, [=]{ pumped(); }).cancel(destroyed);
+                m->update_me(spawn_after(0.2, [=]{
+                    pumped();
+                }));
 
                 // free captive, if necessary
                 auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });
@@ -1235,9 +1253,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             switch (character.state()) {
                 case Character::State::startled:
                     character.setState(Character::State::determined);
-                    delay(rand<float>(0.1, 0.8), [&] {
+                    m->update_me(spawn_after(rand<double>(0.1, 0.8), [&]{
                         character.reload();
-                    }).cancel(destroyed);
+                    }));
                     break;
                 case Character::State::rescued:
                     character.reload();
@@ -1269,7 +1287,9 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             if (bird.state() == Bird::State::dying) {
                 bird.setState(Bird::State::puff);
                 bird.setVel({0, 0});
-                delay(0.85, [&]{ m->removeWhenSpaceUnlocked(bird); }).cancel(destroyed);
+                m->update_me(spawn_after(0.85, [=, bird = &bird]{
+                    m->removeWhenSpaceUnlocked(*bird);
+                }));
                 fall();
             } else {
                 // bird has missed all targets and hit ground; send back to attack line
@@ -1361,7 +1381,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 }
 
 void Game::gameOver(bool passed) {
-    m->tick.reset();
+    m->ticker = {};
     m->level_passed = passed;
     m->watch.stop();
     if (passed) {

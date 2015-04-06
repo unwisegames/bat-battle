@@ -340,10 +340,7 @@ void Controller::onDraw() {
         }
 
         for (auto const & a : state.alerts) {
-            if (a.beginfade > 0) {
-                float al = clamp(1.0f - (state.dt - a.beginfade) * 2, 0, 1);
-                sprite_context->alpha = al;
-            }
+            sprite_context->alpha = a.alpha;
             SpriteProgram::drawText(a.s, font.glyphs, 0, pmv() * mat4::translate({a.pos.x, a.pos.y, 0}) * mat4::scale(a.scale), -0.1);
             sprite_context->alpha = 1;
         }

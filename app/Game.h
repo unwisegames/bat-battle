@@ -6,7 +6,7 @@
 
 #include <bricabrac/Game/GameActor.h>
 #include <bricabrac/Utility/Signal.h>
-#include <bricabrac/Game/Timer.h>
+#include <bricabrac/Utility/Timer.h>
 
 constexpr float GRAVITY = -30;
 constexpr float LAUNCH_OFFSET = 1;
@@ -31,7 +31,7 @@ struct GameParams {
     int characters;
     int grey_bats;
     int yellow_bats;
-    float bird_freq = 3.5;
+    float bird_interval = 3.5;
     float bird_speed = 1;
     int max_simul_bats = 1;
 };
@@ -133,8 +133,6 @@ struct TextAlert {
     std::string s;
     brac::vec2 pos;
     float scale;
-    std::unique_ptr<brac::CancelTimer> hide;
-    float beginfade = 0;
     float alpha = 1;
 };
 
@@ -159,7 +157,7 @@ public:
         size_t rem_chars;
         PlayerStats playerStats;
         std::vector<CharacterStats> characterStats;
-        std::vector<TextAlert> alerts;
+        std::list<TextAlert> alerts;
         GameParams params;
     };
 
