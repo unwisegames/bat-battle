@@ -2,6 +2,12 @@
 #include "bats.sprites.h"
 #include "characters.sprites.h"
 #include "character.sprites.h"
+#include "character2.sprites.h"
+#include "character3.sprites.h"
+#include "character4.sprites.h"
+#include "character5.sprites.h"
+#include "character6.sprites.h"
+#include "character7.sprites.h"
 #include "atlas2.sprites.h"
 #include "bomb.sprites.h"
 #include "blast.sprites.h"
@@ -30,6 +36,18 @@ enum Layer : cpLayers { l_all = 1<<0, l_character = 1<<1, l_halo = 1<<2, l_play 
 enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_attack, ct_startle, ct_barrier };
 
 enum BirdType { bt_grey = 0, bt_yellow = 1 };
+
+using CharacterSprites = SpriteLoopDef const (*)[20];
+static CharacterSprites character_sprites[] = {
+    &character.character,
+    &character2.character,
+    &character3.character,
+    &character4.character,
+    &character5.character,
+    &character6.character,
+    &character7.character,
+    &character.character
+};
 
 struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
     PersonalSpaceImpl(cpSpace * space, vec2 const pos)
@@ -75,7 +93,7 @@ struct CharacterImpl : BodyShapes<Character> {
     CharacterStats stats;
 
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
-    : BodyShapes{space, newBody(1, INFINITY, pos), sensor(character.character), gr_character, l_play | l_character}
+    : BodyShapes{space, newBody(1, INFINITY, pos), sensor(*character_sprites[type]), gr_character, l_play | l_character}
     {
         for (auto & shape : shapes()) {
             cpShapeSetElasticity(&*shape, 1);
@@ -481,7 +499,6 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     Relation<BombBatCarrotRel>          bbcr;
     Relation<CharacterDetonatedBomb>    cdb;
     brac::Stopwatch watch{false};
-    std::unique_ptr<CancelTimer> text_timer;
 
     Members(SpaceTime & st) : Impl{st} { }
 
@@ -822,18 +839,20 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         cpShapeSetCollisionType(&*m->lbarrier, ct_barrier);
         cpShapeSetCollisionType(&*m->rbarrier, ct_barrier);
 
-        auto createCharacter = [=](vec2 const v) {
-            auto & c = m->emplace<CharacterImpl>(0, v);
+        auto createCharacter = [=](vec2 const v, int i) {
+            auto & c = m->emplace<CharacterImpl>(i, v);
             auto & ps = m->emplace<PersonalSpaceImpl>(v);
             m->cps.insert(CharacterPersonalSpace{&c, ps.attachCharacterBody(*c.body()), &ps});
         };
 
         auto createCharacters = [=]{
+            std::random_shuffle(std::begin(character_sprites), std::end(character_sprites));
+
             float min = -9;
             for (int i = 0; i < m->params.characters; ++i) {
                 float max = min + (18.0f / float(m->params.characters));
                 vec2 v{rand<float>(min + 0.5, max - 0.5), 2.3};
-                createCharacter(v);
+                createCharacter(v, i);
                 min = max;
             }
             for (auto & c : m->actors<CharacterImpl>()) c.initState();
