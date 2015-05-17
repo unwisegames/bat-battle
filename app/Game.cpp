@@ -8,6 +8,7 @@
 #include "character5.sprites.h"
 #include "character6.sprites.h"
 #include "character7.sprites.h"
+#include "character8.sprites.h"
 #include "atlas2.sprites.h"
 #include "bomb.sprites.h"
 #include "blast.sprites.h"
@@ -38,15 +39,21 @@ enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_
 enum BirdType { bt_grey = 0, bt_yellow = 1 };
 
 using CharacterSprites = SpriteLoopDef const (*)[20];
-static CharacterSprites character_sprites[] = {
-    &character.character,
-    &character2.character,
-    &character3.character,
-    &character4.character,
-    &character5.character,
-    &character6.character,
-    &character7.character,
-    &character.character
+using CharacterMugshot = SpriteDef const (*);
+struct CharDef {
+    CharacterSprites sprites;
+    CharacterMugshot mug;
+};
+
+static CharDef char_defs[] = {
+    CharDef{ &character.character, &character.mugshot },
+    CharDef{ &character2.character, &character2.mugshot },
+    CharDef{ &character3.character, &character3.mugshot },
+    CharDef{ &character4.character, &character4.mugshot },
+    CharDef{ &character5.character, &character5.mugshot },
+    CharDef{ &character6.character, &character6.mugshot },
+    CharDef{ &character7.character, &character7.mugshot },
+    CharDef{ &character8.character, &character8.mugshot }
 };
 
 struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
@@ -93,7 +100,7 @@ struct CharacterImpl : BodyShapes<Character> {
     CharacterStats stats;
 
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
-    : BodyShapes{space, newBody(1, INFINITY, pos), sensor(*character_sprites[type]), gr_character, l_play | l_character}
+    : BodyShapes{space, newBody(1, INFINITY, pos), sensor(*char_defs[type].sprites), gr_character, l_play | l_character}
     {
         for (auto & shape : shapes()) {
             cpShapeSetElasticity(&*shape, 1);
@@ -104,7 +111,7 @@ struct CharacterImpl : BodyShapes<Character> {
         cpShapeSetLayers(&*shape, l_play);
         cpShapeSetGroup(&*shape, gr_character);
 
-        stats.mugshot = character.mugshot;
+        stats.mugshot = *char_defs[type].mug;
 
         reader<> ticks;
         spawn(new_ticker(++ticks, 5));
@@ -846,8 +853,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         };
 
         auto createCharacters = [=]{
-            std::random_shuffle(std::begin(character_sprites), std::end(character_sprites));
-
+            std::random_shuffle(std::begin(char_defs), std::end(char_defs)); // shuffle characters
+            
             float min = -9;
             for (int i = 0; i < m->params.characters; ++i) {
                 float max = min + (18.0f / float(m->params.characters));
