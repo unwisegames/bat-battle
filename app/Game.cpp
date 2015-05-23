@@ -9,6 +9,7 @@
 #include "character6.sprites.h"
 #include "character7.sprites.h"
 #include "character8.sprites.h"
+#include "character9.sprites.h"
 #include "atlas2.sprites.h"
 #include "bomb.sprites.h"
 #include "blast.sprites.h"
@@ -53,7 +54,8 @@ static CharDef char_defs[] = {
     CharDef{ &character5.character, &character5.mugshot },
     CharDef{ &character6.character, &character6.mugshot },
     CharDef{ &character7.character, &character7.mugshot },
-    CharDef{ &character8.character, &character8.mugshot }
+    CharDef{ &character8.character, &character8.mugshot },
+    CharDef{ &character9.character, &character9.mugshot }
 };
 
 struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
