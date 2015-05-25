@@ -11,6 +11,7 @@
 #include "character8.sprites.h"
 #include "character9.sprites.h"
 #include "character10.sprites.h"
+#include "character11.sprites.h"
 #include "atlas2.sprites.h"
 #include "bomb.sprites.h"
 #include "blast.sprites.h"
@@ -48,16 +49,17 @@ struct CharDef {
 };
 
 static CharDef char_defs[] = {
-    CharDef{ &character.character, &character.mugshot },
-    CharDef{ &character2.character, &character2.mugshot },
-    CharDef{ &character3.character, &character3.mugshot },
-    CharDef{ &character4.character, &character4.mugshot },
-    CharDef{ &character5.character, &character5.mugshot },
-    CharDef{ &character6.character, &character6.mugshot },
-    CharDef{ &character7.character, &character7.mugshot },
-    CharDef{ &character8.character, &character8.mugshot },
-    CharDef{ &character9.character, &character9.mugshot },
-    CharDef{ &character10.character, &character10.mugshot }
+    CharDef{ &character.character,      &character.mugshot },
+    CharDef{ &character2.character,     &character2.mugshot },
+    CharDef{ &character3.character,     &character3.mugshot },
+    CharDef{ &character4.character,     &character4.mugshot },
+    CharDef{ &character5.character,     &character5.mugshot },
+    CharDef{ &character6.character,     &character6.mugshot },
+    CharDef{ &character7.character,     &character7.mugshot },
+    CharDef{ &character8.character,     &character8.mugshot },
+    CharDef{ &character9.character,     &character9.mugshot },
+    CharDef{ &character10.character,    &character10.mugshot },
+    CharDef{ &character11.character,    &character11.mugshot }
 };
 
 struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
