@@ -33,7 +33,7 @@
 using namespace brac;
 using namespace cpplinq;
 
-enum Group : cpGroup { gr_bird = 1, gr_character = 2 };
+enum Group : cpGroup { gr_bird = 1, gr_character };
 
 enum Layer : cpLayers { l_all = 1<<0, l_character = 1<<1, l_halo = 1<<2, l_play = 1<<3 };
 
@@ -41,25 +41,27 @@ enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_
 
 enum BirdType { bt_grey = 0, bt_yellow = 1 };
 
-using CharacterSprites = SpriteLoopDef const (*)[20];
-using CharacterMugshot = SpriteDef const (*);
+using CharacterSprites = SpriteLoopDef const[20];
+using CharacterMugshot = SpriteDef const;
 struct CharDef {
-    CharacterSprites sprites;
-    CharacterMugshot mug;
+    CharacterSprites * sprites;
+    CharacterMugshot * mug;
 };
 
+auto char_def = [](auto const & c) { return CharDef{&c.character, &c.mugshot}; };
+
 static CharDef char_defs[] = {
-    CharDef{ &character.character,      &character.mugshot },
-    CharDef{ &character2.character,     &character2.mugshot },
-    CharDef{ &character3.character,     &character3.mugshot },
-    CharDef{ &character4.character,     &character4.mugshot },
-    CharDef{ &character5.character,     &character5.mugshot },
-    CharDef{ &character6.character,     &character6.mugshot },
-    CharDef{ &character7.character,     &character7.mugshot },
-    CharDef{ &character8.character,     &character8.mugshot },
-    CharDef{ &character9.character,     &character9.mugshot },
-    CharDef{ &character10.character,    &character10.mugshot },
-    CharDef{ &character11.character,    &character11.mugshot }
+    char_def(character),
+    char_def(character2),
+    char_def(character3),
+    char_def(character4),
+    char_def(character5),
+    char_def(character6),
+    char_def(character7),
+    char_def(character8),
+    char_def(character9),
+    char_def(character10),
+    char_def(character11),
 };
 
 struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
@@ -360,7 +362,7 @@ struct BombBatCarrotImpl : BodyShapes<BombBatCarrot> {
 };
 
 struct BombImpl : BodyShapes<Bomb> {
-    writer<> ticker;
+    writer<> ticker_keepalive;
 
     BombImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), bomb.bomb, gr_bird, l_play}
@@ -430,59 +432,59 @@ struct DartImpl : BodyShapes<Dart> {
 };
 
 struct CharacterJointBird {
-    CharacterImpl * c;
+    CharacterImpl * const c;
     array<ConstraintPtr, 2> p;
-    BirdImpl * b;
+    BirdImpl * const b;
 
     bool operator==(CharacterJointBird const & cjb) const { return c == cjb.c && p == cjb.p && b == cjb.b; }
     size_t hash() const { return hash_of(c, p[0], p[1], b); }
 };
 
 struct BirdTargetCharacter {
-    BirdImpl * b;
-    CharacterImpl * c;
+    BirdImpl * const b;
+    CharacterImpl * const c;
 
     bool operator==(BirdTargetCharacter const & targets) const { return b == targets.b && c == targets.c; }
     size_t hash() const { return hash_of(b, c); }
 };
 
 struct CharacterShotDart {
-    CharacterImpl * c;
-    DartImpl * d;
+    CharacterImpl * const c;
+    DartImpl * const d;
 
     bool operator==(CharacterShotDart const & csd) const { return c == csd.c && d == csd.d; }
     size_t hash() const { return hash_of(c, d); }
 };
 
 struct CharacterPersonalSpace {
-    CharacterImpl * c;
+    CharacterImpl * const c;
     ConstraintPtr p;
-    PersonalSpaceImpl * ps;
+    PersonalSpaceImpl * const ps;
 
     bool operator==(CharacterPersonalSpace const & cps) const { return c == cps.c && p == cps.p && ps == cps.ps; }
     size_t hash() const { return hash_of(c, p, ps); }
 };
 
 struct BatJointBomb {
-    BombBatImpl * bat;
+    BombBatImpl * const bat;
     array<ConstraintPtr, 2> p;
-    BombImpl * bomb;
+    BombImpl * const bomb;
 
     bool operator==(BatJointBomb const & bjb) const { return bat == bjb.bat && p == bjb.p && bomb == bjb.bomb; }
     size_t hash() const { return hash_of(bat, p[0], p[1], bomb); }
 };
 
 struct BombBatCarrotRel {
-    BombBatImpl * bat;
-    BombBatCarrotImpl * carrot;
+    BombBatImpl * const bat;
+    BombBatCarrotImpl * const carrot;
 
     bool operator==(BombBatCarrotRel const & bbcr) const { return bat == bbcr.bat && carrot == bbcr.carrot; }
     size_t hash() const { return hash_of(bat, carrot); }
 };
 
 struct CharacterDetonatedBomb {
-    CharacterImpl * c;
-    BombImpl * bomb;
+    CharacterImpl * const c;
+    BombImpl * const bomb;
 
     bool operator==(CharacterDetonatedBomb const & cdb) const { return c == cdb.c && bomb == cdb.bomb; }
     size_t hash() const { return hash_of(c, bomb); }
@@ -500,7 +502,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     ShapePtr rslope{segmentShape({9, 2.5}, {10, 4})};
     size_t created_grey_bats = 0;
     size_t created_yellow_bats = 0;
-    writer<> ticker;
+    writer<> ticker_keepalive;
     Relation<CharacterJointBird>        cjb;
     Relation<BirdTargetCharacter>       targets;
     Relation<CharacterShotDart>         csd;
@@ -667,7 +669,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     auto retargetBirdsChasingMe = [=](CharacterImpl & character) {
         // send birds after new target
-        from(m->targets) >> for_each([&](auto && targets) {
+        from(m->targets) >> for_each([&](auto targets) {
             if (targets.c == &character && targets.b->isFlying()) {
                 if (targets.b->pos().y > ATTACK_LINE_Y) {
                     newTarget(*targets.b);
@@ -757,7 +759,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         // who caused detonation?
         CharacterImpl * character;
         auto characterCausedDetonation = [&](BombImpl & bomb) {
-            auto matching = from(m->cdb) >> mutable_ref() >> where([&](auto && cdb) { return cdb.get().bomb = &bomb; });
+            auto matching = from(m->cdb) >> mutable_ref() >> where([&](auto && cdb) { return cdb.get().bomb == &bomb; });
             if (matching >> any()) {
                 auto & cdb = (matching >> first()).get();
                 character = cdb.c;
@@ -862,8 +864,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         m->abyssWalls[1] = seg({10,  top}, {10,  -10}, ct_abyss);  // right
         m->abyssWalls[2] = seg({-10, top}, {10,  top}, ct_abyss);  // top
         m->startleLine = seg({-10, top - 1}, {10, top - 1}, ct_startle);
-        m->back->setY(top - 0.8);
-        m->restart->setY(top - 0.8);
+        m->back_btn->setY(top - 0.8);
+        m->restart_btn->setY(top - 0.8);
 
         generateLevel();
 
@@ -905,8 +907,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         createCharacters();
 
         // create birds
-        m->ticker = {};
-        spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker)), interval = m->params.bird_interval]{
+        m->ticker_keepalive = {};
+        spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker_keepalive)), interval = m->params.bird_interval]{
             while (sleep(interval)) {
                 m->update_me(spawn_after(rand<double>(0, 1), [&]{
                     for (auto i = rand<int>(1, m->params.max_simul_bats); i--;) {
@@ -993,7 +995,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             ++m->playerStats.hits;
 
             // if bat is holding bomb, remove from BatJointBomb
-            auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bomb = &bomb; });
+            auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bomb == &bomb; });
             if (matching >> any()) {
                 auto & bjb = (matching >> first()).get();
                 m->bjb.erase(bjb);
@@ -1010,7 +1012,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     }
                 }
             }
-            bomb.ticker = {};
+            bomb.ticker_keepalive = {};
 
             // who caused the detonation?
             auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
@@ -1059,21 +1061,27 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
     m->onCollision([=](BombBatImpl & bat, NoActor<ct_startle> &, cpArbiter * arb) {
         if (cpArbiterIsFirstContact(arb)) {
-            auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat = &bat; });
+            auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat == &bat; });
             if (matching >> any()) {
                 auto bjb = &(matching >> first()).get();
 
                 // arm bomb
                 bjb->bomb->countdown = 10; beep();
-                spawn([=, bat = &bat, ticker = chan::spawn_quantize(bjb->bomb->update_me(), 1.0)]{
-                    while (ticker >> poke && --bjb->bomb->countdown) {
-                        tick();
+                reader<> ticker = chan::spawn_quantize(bjb->bomb->update_me(), 1.0);
+                ticker = chan::spawn_killswitch(ticker, --bjb->bomb->ticker_keepalive); // killable
+                spawn([=, bat = &bat, ticker = ticker]{
+                    while (ticker >> poke) {
+                        if (--bjb->bomb->countdown) {
+                            tick();
+                        } else {
+                            m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == bat; });
+                            bjb->bat->desired_pos = vec2{bjb->bat->pos().x, 20};
+                            bjb->bomb->setForce({0, 0}); // allow application of gravity
+                            m->bjb.erase(*bjb);
+                            bombwhistle_start();
+                            return;
+                        }
                     }
-                    m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == bat; });
-                    bjb->bat->desired_pos = vec2{bjb->bat->pos().x, 20};
-                    bjb->bomb->setForce({0, 0}); // allow application of gravity
-                    m->bjb.erase(*bjb);
-                    bombwhistle_start();
                 });
             }
         }
@@ -1097,11 +1105,11 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 }
 
                 // if bat holding bomb, drop it
-                auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat = &bat; });
+                auto matching = from(m->bjb) >> mutable_ref() >> where([&](auto && bjb) { return bjb.get().bat == &bat; });
                 if (matching >> any()) {
                     m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == &bat; });
                     auto & bjb = (matching >> first()).get();
-                    bjb.bomb->ticker = {};
+                    bjb.bomb->ticker_keepalive = {};
                     bjb.bomb->countdown = 0;
                     bjb.bomb->setVel({0, 0});
                     bjb.bomb->setForce({0, 0}); // allow application of gravity
@@ -1381,7 +1389,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 }
 
 void Game::gameOver(bool passed) {
-    m->ticker = {};
+    m->ticker_keepalive = {};
     m->level_passed = passed;
     m->watch.stop();
     if (passed) {
@@ -1407,10 +1415,10 @@ Game::~Game() { }
 Game::State const & Game::state() const { return *m; }
 
 std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
-    if (auto backHandler = m->back->handleTouch(p)) {
+    if (auto backHandler = m->back_btn->handleTouch(p)) {
         return backHandler;
     }
-    if (auto restartHandler = m->restart->handleTouch(p)) {
+    if (auto restartHandler = m->restart_btn->handleTouch(p)) {
         return restartHandler;
     }
 

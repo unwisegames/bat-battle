@@ -209,13 +209,13 @@ void Controller::newGame(GameMode mode, int level) {
         };
     };
 
-    state.back->clicked += [=] {
+    state.back_btn->clicked += [=] {
         click();
         m->newGame = true;
         m->mode = m_menu;
     };
 
-    state.restart->clicked += [=] {
+    state.restart_btn->clicked += [=] {
         click();
         m->game->end();
 //        m->newGame = true;
@@ -313,8 +313,8 @@ void Controller::onDraw() {
         SpriteProgram::drawText("SCORE :  " + std::to_string(state.score), font.glyphs, 1,
                                 pmv() * mat4::translate({9, m->top-1, 0}) * mat4::scale(0.5), -0.1);
 
-        state.back->draw(pmv());
-        state.restart->draw(pmv());
+        state.back_btn->draw(pmv());
+        state.restart_btn->draw(pmv());
 
         if (state.params.yellow_bats == 0) {
             SpriteProgram::drawText(std::to_string(state.rem_grey_bats), font.glyphs, -1, pmv() * mat4::translate({0    , m->top-1, 0}) * mat4::scale(0.5));

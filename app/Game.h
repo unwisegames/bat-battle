@@ -150,8 +150,8 @@ public:
         size_t score = 0;
         GameMode mode;
         int level;
-        std::shared_ptr<Button> back{std::make_shared<Button>(atlas.back, brac::vec2{-9.2, 10}, 1)};
-        std::shared_ptr<Button> restart{std::make_shared<Button>(atlas.restart, brac::vec2{-7.9, 10}, 1)};
+        std::unique_ptr<Button> back_btn{std::make_unique<Button>(atlas.back, brac::vec2{-9.2, 10}, 1)};
+        std::unique_ptr<Button> restart_btn{std::make_unique<Button>(atlas.restart, brac::vec2{-7.9, 10}, 1)};
         size_t rem_grey_bats;
         size_t rem_yellow_bats;
         size_t rem_chars;
