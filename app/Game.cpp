@@ -540,7 +540,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
             return !c.isDead() && !(from(cjb) >> any([&](auto && cjb) { return cjb.c == &c; }));
         };
 
-        return from(actors<CharacterImpl>()) >> any([&](auto && c) { return iAm(c); });
+        return from(actors<CharacterImpl>()) >> any(iAm);
     }
 
     bool levelOver() {
