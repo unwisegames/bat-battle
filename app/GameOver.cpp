@@ -119,9 +119,6 @@ void GameOver::onResize(brac::vec2 const & size) {
     adaptiveOrtho(-6, -6, 6, 6, 0, -INFINITY, 0, INFINITY);//, {100, INFINITY});
 }
 
-std::unique_ptr<TouchHandler> GameOver::onTouch(vec2 const & worldPos, float radius) {
-    if (auto handler = Button::handleTouch(worldPos, {back, restart, next, backf, restartf})) {
-        return handler;
-    }
-    return TouchHandler::absorb();
+TouchHandler GameOver::onTouch(vec2 const & worldPos, float radius) {
+    return Button::handleTouch(worldPos, {back, restart, next, backf, restartf});
 }

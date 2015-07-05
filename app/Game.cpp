@@ -122,7 +122,7 @@ struct CharacterImpl : BodyShapes<Character> {
         stats.mugshot = *char_defs[type].mug;
 
         spawn([ticks = chan::spawn_quantize(update_me(), 5.0)]{
-            while (ticks >> poke) {
+            while (ticks >> nullptr) {
                 //std::cerr << "Update\n";
             }
         });
@@ -1067,10 +1067,10 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
 
                 // arm bomb
                 bjb->bomb->countdown = 10; beep();
-                reader<> ticker = chan::spawn_quantize(bjb->bomb->update_me(), 1.0);
+                reader<double> ticker = chan::spawn_quantize(bjb->bomb->update_me(), 1.0);
                 ticker = chan::spawn_killswitch(ticker, --bjb->bomb->ticker_keepalive); // killable
                 spawn([=, bat = &bat, ticker = ticker]{
-                    while (ticker >> poke) {
+                    while (ticker >> nullptr) {
                         if (--bjb->bomb->countdown) {
                             tick();
                         } else {
@@ -1414,7 +1414,7 @@ Game::~Game() { }
 
 Game::State const & Game::state() const { return *m; }
 
-std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
+TouchHandler Game::fingerTouch(vec2 const & p, float radius) {
     if (auto backHandler = m->back_btn->handleTouch(p)) {
         return backHandler;
     }
@@ -1437,19 +1437,25 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
 
     if (character) {
         if (character->readyToFire()) {
-            struct CharacterAimAndFireHandler : TouchHandler {
-                std::weak_ptr<Game> weak_self;
-                CharacterImpl * character;
-                vec2 first_p, vel;
+            return spawn_touchHandler([=, weak_self = std::weak_ptr<Game>{shared_from_this()}](auto moved, auto cancelled) {
+                vec2 first_p = p;
 
-                CharacterAimAndFireHandler(Game & self, vec2 const & p, CharacterImpl * character)
-                : weak_self{self.shared_from_this()}
-                , character{character}
-                , first_p{p}
-                {
+                for (TouchMove m; moved >> m;) {
+                    if (auto self = weak_self.lock()) {
+                        if (self->m->isCaptive(*character)) {
+                            // captured; end touch event
+                            return;
+                        } else {
+                            auto v = first_p - m.pos;
+                            character->setState(Character::State::aim);
+                            //self->aim();
+                            if (v) {
+                                character->aim((14 * rcp_length(v) + 2) * v);
+                            }
+                        }
+                    }
                 }
-
-                ~CharacterAimAndFireHandler() {
+                if (!(cancelled >> poke)) {
                     if (auto self = weak_self.lock()) {
                         // TODO: Return smoothly to upright posture.
                         if (character->isAiming()) {
@@ -1464,25 +1470,7 @@ std::unique_ptr<TouchHandler> Game::fingerTouch(vec2 const & p, float radius) {
                         }
                     }
                 }
-
-                virtual void moved(vec2 const & p, bool) {
-                    if (auto self = weak_self.lock()) {
-                        if (self->m->isCaptive(*character)) {
-                            // captured; end touch event
-                            return;
-                        } else {
-                            auto v = first_p - p;
-                            character->setState(Character::State::aim);
-                            //self->aim();
-                            if (float s = length(v)) {
-                                character->aim((14 + 2 * s) / s * v);
-                            }
-                        }
-                    }
-                }
-            };
-
-            return std::unique_ptr<TouchHandler>{new CharacterAimAndFireHandler{*this, p, character}};
+            });
         } else {
             if (character->state() == Character::State::reloading) {
                 reloading();

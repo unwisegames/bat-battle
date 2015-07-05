@@ -376,6 +376,6 @@ void Controller::onResize(brac::vec2 const & size) {
     m->top = top.y;
 }
 
-std::unique_ptr<TouchHandler> Controller::onTouch(vec2 const & worldPos, float radius) {
+TouchHandler Controller::onTouch(vec2 const & worldPos, float radius) {
     return m->game->fingerTouch(worldPos, radius);
 }

@@ -29,9 +29,9 @@ void Menu::onResize(brac::vec2 const & size) {
     adaptiveOrtho(-6, -6, 6, 6, 0, -INFINITY, 0, INFINITY);// , {100, INFINITY});
 }
 
-std::unique_ptr<TouchHandler> Menu::onTouch(vec2 const & worldPos, float) {
+TouchHandler Menu::onTouch(vec2 const & worldPos, float) {
     if (auto handler = Button::handleTouch(worldPos, {play, gamecenter, twitter})) {
         return handler;
     }
-    return TouchHandler::absorb();
+    return {};
 }
