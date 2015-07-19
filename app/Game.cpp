@@ -1,7 +1,7 @@
 #include "Game.h"
 #include "bats.sprites.h"
 #include "characters.sprites.h"
-#include "character.sprites.h"
+#include "character1.sprites.h"
 #include "character2.sprites.h"
 #include "character3.sprites.h"
 #include "character4.sprites.h"
@@ -11,7 +11,6 @@
 #include "character8.sprites.h"
 #include "character9.sprites.h"
 #include "character10.sprites.h"
-#include "character11.sprites.h"
 #include "atlas2.sprites.h"
 #include "bomb.sprites.h"
 #include "blast.sprites.h"
@@ -41,7 +40,7 @@ enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_
 
 enum BirdType { bt_grey = 0, bt_yellow = 1 };
 
-using CharacterSprites = SpriteLoopDef const[20];
+using CharacterSprites = SpriteLoopDef const[23];
 using CharacterMugshot = SpriteDef const;
 struct CharDef {
     CharacterSprites * sprites;
@@ -51,7 +50,7 @@ struct CharDef {
 auto char_def = [](auto const & c) { return CharDef{&c.character, &c.mugshot}; };
 
 static CharDef char_defs[] = {
-    char_def(character),
+    char_def(character1),
     char_def(character2),
     char_def(character3),
     char_def(character4),
@@ -61,7 +60,6 @@ static CharDef char_defs[] = {
     char_def(character8),
     char_def(character9),
     char_def(character10),
-    char_def(character11),
 };
 
 struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
@@ -169,7 +167,9 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 
     void initState() {
-        setState(randomChoice({biggrin, smile, smug, exclaim}));
+        update_me(spawn_after(rand<double>(0.0, 0.3), [&]{
+            setState(randomChoice({biggrin, smile, smug, mag, basketball, hum, wave}));
+        }));
     }
 
     void reload() {

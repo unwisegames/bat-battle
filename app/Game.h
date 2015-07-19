@@ -58,6 +58,9 @@ struct Character : brac::Actor {
         shooting,
         crying,
         reloading,
+        basketball,
+        hum,
+        wave
     };
 
     virtual bool isAiming() const = 0;
