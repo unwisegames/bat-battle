@@ -1178,11 +1178,27 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 }
             }
 
+            auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });
+            auto freeCaptive = [&]() {
+                auto & cjb = (matching >> first()).get();
+                cjb.b->dropCharacter();
+                cjb.c->rescue();
+                m->cjb.erase(cjb);
+                cjb.b->hasCaptive = false;
+                m->score += dart.score + SCORE_CHAR_RESCUED;
+            };
+
             if (bird.resilience > 0) {
                 bird.setAngle(0);
                 bird.setVel({0, 0});
 
                 --bird.resilience;
+
+                if (matching >> any()) {
+                    freeCaptive();
+                    registerTextAlert(std::to_string(SCORE_CHAR_RESCUED), vec2{bird.pos().x, bird.pos().y + float(1)}, 1, 0.3);
+                    newTarget(bird);
+                }
             } else {
                 m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
                 bird.setState(Bird::State::dying);
@@ -1192,14 +1208,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 }));
 
                 // free captive, if necessary
-                auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });
                 if (matching >> any()) {
-                    auto & cjb = (matching >> first()).get();
-                    cjb.b->dropCharacter();
-                    cjb.c->rescue();
-                    m->cjb.erase(cjb);
-                    cjb.b->hasCaptive = false;
-                    m->score += dart.score + SCORE_CHAR_RESCUED;
+                    freeCaptive();
                     registerTextAlert(std::to_string(dart.score + SCORE_CHAR_RESCUED), vec2{bird.pos().x, bird.pos().y + float(1)}, 1, 0.3);
                 } else {
                     m->score += dart.score; // SCORE_BIRD_KILLED;
