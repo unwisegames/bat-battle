@@ -14,11 +14,15 @@ constexpr float WORLD_GRAVITY = -10;
 constexpr float ATTACK_LINE_Y = 6;
 constexpr int   DART_TRAIL_SEGMENTS = 10;
 
-// Temporary: move to GameParams struct and passed as param to newGame?
-constexpr int   CHARACTERS = 2;
-constexpr int   BIRDS = 10;
-constexpr float BIRDFREQUENCY = 3.5;
+// Temporary
+constexpr int   CHARACTERS = 8;
+constexpr float BIRD_INTERVAL = 3.5;
 constexpr float BIRD_SPEED = 1;
+constexpr float MAX_SIMUL_BATS = 2;
+// sum of following 3 constants should always = 1
+constexpr float GREY_BAT_RATIO = 0.7;
+constexpr float YELLOW_BAT_RATIO = 0.25;
+constexpr float BOMB_BAT_RATIO = 0.05;
 
 // Scoring
 constexpr int   SCORE_DART_FIRED = 20;
@@ -147,21 +151,22 @@ public:
     struct State {
         float dt = 0;
         bool started = false;
-        bool level_passed = false;
-        bool level_failed = false;
         bool show_char_score = false;
         size_t score = 0;
         GameMode mode;
-        int level;
         std::shared_ptr<Button> back_btn{std::make_shared<Button>(atlas.back, brac::vec2{-9.2, 10}, 1)};
         std::shared_ptr<Button> restart_btn{std::make_shared<Button>(atlas.restart, brac::vec2{-7.9, 10}, 1)};
-        size_t rem_grey_bats;
-        size_t rem_yellow_bats;
+        //size_t rem_grey_bats;
+        //size_t rem_yellow_bats;
+        size_t grey_bats_killed = 0;
+        size_t yellow_bats_killed = 0;
+        size_t bomb_bats_killed = 0;
         size_t rem_chars;
         PlayerStats playerStats;
         std::vector<CharacterStats> characterStats;
         std::list<TextAlert> alerts;
         GameParams params;
+        bool game_over = false;
     };
 
     brac::Signal<void()> show_menu;
@@ -196,13 +201,13 @@ public:
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits
     brac::Signal<void()> sharpshot;
 
-    Game(brac::SpaceTime & st, GameMode mode, int level, float top);
+    Game(brac::SpaceTime & st, GameMode mode, float top);
     ~Game();
 
     State const & state() const;
     
     virtual brac::TouchHandler fingerTouch(brac::vec2 const & p, float radius) override;
-    void gameOver(bool passed);
+    void gameOver();
     void archiveCharacterStats(CharacterStats s);
 
 private:

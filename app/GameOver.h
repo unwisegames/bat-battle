@@ -10,7 +10,7 @@
 
 class GameOver : public brac::GameController {
 public:
-    GameOver(GameMode m, int level, bool passed, size_t score, size_t best, PlayerStats ps, std::vector<CharacterStats> cs);
+    GameOver(GameMode m, size_t score, size_t best, PlayerStats ps, std::vector<CharacterStats> cs);
 
     std::shared_ptr<Button> back        = makeButton(atlas.back     , {-5, -0.8}, 1.1);
     std::shared_ptr<Button> restart     = makeButton(atlas.restart  , {-5, 0.8}, 1.1);
@@ -21,8 +21,6 @@ public:
 private:
     size_t score_;
     size_t best_;
-    bool passed_;
-    int level_;
     PlayerStats ps_;
     std::vector<CharacterStats> cs_;
     int mom_ = 0;

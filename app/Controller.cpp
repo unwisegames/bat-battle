@@ -28,7 +28,6 @@ struct Controller::Members {
     float angle = 0;
     bool newGame = false;
     GameMode mode = m_menu;
-    int level = 0;
     float top = 0;
     sounds audio{0.5, 1};
     std::unique_ptr<NormalShadeProgram> shadeProgram;
@@ -37,11 +36,12 @@ struct Controller::Members {
     std::unique_ptr<Sprite> flame;
 
     // Persistent data
-    Persistent<int> highestCompletedLevel{"highestCompletedLevel"};
     Persistent<int> totalPoints{"totalPoints"};
+    Persistent<int> dartsFired{"dartsFired"};
     Persistent<int> bestScore{"bestScore"};
-    Persistent<int> arcGamesPlayed{"arcGamesPlayed"};
-    Persistent<int> buzGamesPlayed{"buzGamesPlayed"};
+    Persistent<int> batsKilled{"batsKilled"};
+    Persistent<float> accuracy{"accuracy"};
+    Persistent<int> hits{"hits"};
 };
 
 Controller::Controller() : m{new Controller::Members{}} {
@@ -62,14 +62,14 @@ Controller::Controller() : m{new Controller::Members{}} {
         m->flamebuf.push_back({bot_pos, bot_tc});
     }
 
-    newGame(MODE, 1);
+    newGame(MODE);
 }
 
 Controller::~Controller() { }
 
-void Controller::newGame(GameMode mode, int level) {
+void Controller::newGame(GameMode mode) {
     m->newGame = false;
-    m->game = std::make_shared<Game>(spaceTime(), mode, level, m->top);
+    m->game = std::make_shared<Game>(spaceTime(), mode, m->top);
 
     auto const & state = m->game->state();
 
@@ -95,7 +95,6 @@ void Controller::newGame(GameMode mode, int level) {
         return [=]{
             click();
             m->mode = mode;
-            m->level = level;
             m->newGame = true;
         };
     };
@@ -165,9 +164,9 @@ void Controller::newGame(GameMode mode, int level) {
 
         stopYays();
 
-        if (state.level_passed && state.level > *m->highestCompletedLevel) {
-            m->highestCompletedLevel = state.level;
-        }
+        /*if (state.level_passed && state.level > *m->highestCompletedLevel) {
+            brag::highlevel = state.level;
+        }*/
 
         size_t score = state.score;
         if (score > 0) {
@@ -176,28 +175,36 @@ void Controller::newGame(GameMode mode, int level) {
             }
             m->totalPoints = *m->totalPoints + static_cast<int>(score);
 
-            if (score >= 25) {
+            /*if (score >= 25) {
                 brag::score25(100, []{});
                 if (score >= 100) {
                 }
-            }
+            }*/
             
-            size_t tp = *m->totalPoints + *m->totalPoints;
-            brag::total = tp;
+            size_t tp = *m->totalPoints;
+            brag::totalpoints = tp;
         }
 
-        auto gameOver = emplaceController<GameOver>(mode, m->level, state.level_passed, score, *m->bestScore, state.playerStats, state.characterStats);
+        m->dartsFired = *m->dartsFired + state.playerStats.darts;
+        m->batsKilled = *m->batsKilled + state.playerStats.kills;
+        m->hits = *m->hits + state.playerStats.hits;
+        m->accuracy = (float(*m->hits) / float(*m->dartsFired)) * 100;
+        brag::dartsfired = *m->dartsFired;
+        brag::batskilled = *m->batsKilled;
+        brag::accuracy = *m->accuracy;
+
+        auto gameOver = emplaceController<GameOver>(mode, score, *m->bestScore, state.playerStats, state.characterStats);
         gameOver->back      ->clicked += newGame(m_menu);
-        gameOver->restart   ->clicked += newGame(m->mode, m->level);
-        gameOver->next      ->clicked += newGame(m->mode, m->level + 1);
+        gameOver->restart   ->clicked += newGame(m->mode);
+        gameOver->next      ->clicked += newGame(m->mode);
         gameOver->backf     ->clicked += newGame(m_menu);
-        gameOver->restartf  ->clicked += newGame(m->mode, m->level);
+        gameOver->restartf  ->clicked += newGame(m->mode);
     };
 
     m->game->show_menu += [=] {
         auto menu = emplaceController<Menu>();
 
-        menu->play->clicked += newGame(m_play, *m->highestCompletedLevel + 1);
+        menu->play->clicked += newGame(m_play);
 
         menu->gamecenter->clicked += [=]{
             click();
@@ -229,7 +236,7 @@ bool Controller::onUpdate(float dt) {
         //newGame();
     }
     if (m->newGame) {
-        newGame(m->mode, m->level);
+        newGame(m->mode);
         return false;
     }
     m->angle += dt;
@@ -316,16 +323,11 @@ void Controller::onDraw() {
         state.back_btn->draw(pmv());
         state.restart_btn->draw(pmv());
 
-        if (state.params.yellow_bats == 0) {
-            SpriteProgram::drawText(std::to_string(state.rem_grey_bats), font.glyphs, -1, pmv() * mat4::translate({0    , m->top-1, 0}) * mat4::scale(0.5));
-            SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-0.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
-        } else {
-            SpriteProgram::drawText(std::to_string(state.rem_grey_bats), font.glyphs, -1, pmv() * mat4::translate({-2, m->top-1, 0}) * mat4::scale(0.5));
-            SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-2.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
+        SpriteProgram::drawText(std::to_string(state.grey_bats_killed), font.glyphs, -1, pmv() * mat4::translate({-2, m->top-1, 0}) * mat4::scale(0.5));
+        SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-2.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
 
-            SpriteProgram::drawText(std::to_string(state.rem_yellow_bats), font.glyphs, -1, pmv() * mat4::translate({1.2, m->top-1, 0}) * mat4::scale(0.5));
-            SpriteProgram::draw(atlas.yellowbathead, pmv() * mat4::translate({0.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
-        }
+        SpriteProgram::drawText(std::to_string(state.yellow_bats_killed), font.glyphs, -1, pmv() * mat4::translate({1.2, m->top-1, 0}) * mat4::scale(0.5));
+        SpriteProgram::draw(atlas.yellowbathead, pmv() * mat4::translate({0.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
 
         /*if (!m->game->state().started) {
             SpriteProgram::drawText("LEVEL " + std::to_string(m->level), font.glyphs, 0, pmv() * mat4::translate({0, m->top - 5, 0}), -0.1);

@@ -27,7 +27,7 @@
 #include <unordered_set>
 #include <iostream>
 
-#include "levels.h"
+//#include "levels.h"
 
 using namespace brac;
 using namespace cpplinq;
@@ -543,9 +543,9 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
         return from(actors<CharacterImpl>()) >> any(iAm);
     }
 
-    bool levelOver() {
-        return level_passed || level_failed;
-    }
+    /*bool levelOver() {
+        return true; //level_passed || level_failed;
+    }*/
 
     void alertsHousekeeping() {
         alerts.erase(std::remove_if(alerts.begin(), alerts.end(), [&](const TextAlert & a){ return !a.alpha; }), alerts.end());
@@ -553,9 +553,8 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
 
 };
 
-Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, m{new Members{st}} {
+Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Members{st}} {
     m->mode = mode;
-    m->level = level;
 
     auto registerTextAlert = [=](std::string s, vec2 pos, float duration, float scale) {
         m->alertsHousekeeping();
@@ -570,8 +569,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         alert();
     };
 
-    auto generateLevel = [=]() {
-        m->params.grey_bats      =  lp[m->level - 1].grey_bats;
+    //auto generateLevel = [=]() {
+        /*m->params.grey_bats      =  lp[m->level - 1].grey_bats;
         m->params.yellow_bats    =  lp[m->level - 1].yellow_bats;
         m->params.characters     =  lp[m->level - 1].characters;
         m->params.bird_speed     =  lp[m->level - 1].bird_speed;
@@ -582,7 +581,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         m->playerStats.birds        = m->params.grey_bats + m->params.yellow_bats;
         m->rem_grey_bats            = m->params.grey_bats;
         m->rem_yellow_bats          = m->params.yellow_bats;
-        m->rem_chars                = m->params.characters;
+        m->rem_chars                = m->params.characters;*/
 
         // Temporarily leaving in algorithm below for posterity
         // ********************************************************
@@ -622,7 +621,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             }
         } while (difficulty < min_diff || difficulty > max_diff);*/
         // ********************************************************
-    };
+    //};
 
     auto newTarget = [=](BirdImpl & b) {
         m->targets >> removeIf([&](auto && target) { return target.b == &b; });
@@ -700,14 +699,14 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     auto characterKilled = [=]() {
         --m->rem_chars;
         if (m->rem_chars == 0) {
-            m->level_failed = true;
+            m->game_over = true;
 
             spawn([=, sleep = sleeper(m->update_me())]{
                 if (sleep(0.5)) {
                     tension_stop();
                     lose();
                     if (sleep(2)) {
-                        gameOver(false);
+                        gameOver();
                     }
                 }
             });
@@ -718,11 +717,11 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         ++m->playerStats.kills;
 
         if (bt == bt_grey) {
-            --m->rem_grey_bats;
+            ++m->grey_bats_killed;
         } else if (bt == bt_yellow) {
-            --m->rem_yellow_bats;
+            ++m->yellow_bats_killed;
         }
-        if (m->rem_grey_bats == 0 && m->rem_yellow_bats == 0) {
+        /*if (m->rem_grey_bats == 0 && m->rem_yellow_bats == 0) {
             if (!m->level_failed) {
                 m->level_passed = true;
                 for (auto & c : m->actors<CharacterImpl>()) {
@@ -742,7 +741,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     }
                 });
             }
-        }
+        }*/
     };
 
     auto playCharacterExplosion = [=](vec2 pos) {
@@ -782,7 +781,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             return length_sq(pos - blastPos) < 2.5;
         };
 
-        if (!m->levelOver()) {
+        if (!m->game_over) {
             for (auto & c : m->actors<CharacterImpl>()) {
                 if (inBlastRadius(c.pos())) {
                     if (characterCaused) {
@@ -819,7 +818,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                 }
             }
 
-            if (!m->level_failed) { // above didn't wipe out last of characters
+            if (!m->game_over) { // above didn't wipe out last of characters
                 for (auto & b : m->actors<BirdImpl>()) {
                     if (b.isFlying()) {
                         if (inBlastRadius(b.pos())) {
@@ -856,7 +855,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             show_menu();
         }));
     } else {
-        registerTextAlert("LEVEL " + std::to_string(level), {0, top - 5}, 3.5, 1);
+        //registerTextAlert("LEVEL " + std::to_string(level), {0, top - 5}, 3.5, 1);
 
         m->setGravity({0, WORLD_GRAVITY});
         auto seg = [=] (vec2 v1, vec2 v2, CollisionType ct) { return m->sensor(m->segmentShape(v1, v2), ct); };
@@ -867,7 +866,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         m->back_btn->setY(top - 0.8);
         m->restart_btn->setY(top - 0.8);
 
-        generateLevel();
+        //generateLevel();
 
         cpShapeSetCollisionType (&*m->ground, ct_ground);
         cpShapeSetFriction      (&*m->ground, 1);
@@ -888,8 +887,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             std::random_shuffle(std::begin(char_defs), std::end(char_defs)); // shuffle characters
             
             float min = -9;
-            for (int i = 0; i < m->params.characters; ++i) {
-                float max = min + (18.0f / float(m->params.characters));
+            for (int i = 0; i < CHARACTERS; ++i) {
+                float max = min + (18.0f / float(CHARACTERS));
                 vec2 v{rand<float>(min + 0.5, max - 0.5), 2.3};
                 createCharacter(v, i);
                 min = max;
@@ -898,27 +897,38 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         };
 
         auto createBird = [=](BirdType type){
-            auto & b = m->emplace<BirdImpl>(type, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)}, m->params.bird_speed);
+            auto & b = m->emplace<BirdImpl>(type, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)}, BIRD_SPEED);
             newTarget(b);
             if (type == bt_grey) ++m->created_grey_bats;
             else if (type == bt_yellow) ++m->created_yellow_bats;
+        };
+
+        auto createBombBat = [=] {
+            auto STARTPOS = vec2{rand<float>(-10, 10), top + 2};
+            auto CARROTPOS = vec2{clamp(rand<float>(STARTPOS.x - 5, STARTPOS.x + 5), -8, 8), rand<float>(top - 2.5, top - 5)};
+            auto & bb = m->emplace<BombBatImpl>(STARTPOS, CARROTPOS);
+            auto & bmb = m->emplace<BombImpl>(STARTPOS - vec2{0, 0.8});
+            m->bjb.insert(BatJointBomb{&bb, bb.holdBomb(*bmb.body()), &bmb});
+            auto & car = m->emplace<BombBatCarrotImpl>(CARROTPOS);
+            m->bbcr.insert(BombBatCarrotRel{&bb, &car});
         };
 
         createCharacters();
 
         // create birds
         m->ticker_keepalive = {};
-        spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker_keepalive)), interval = m->params.bird_interval]{
+        spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker_keepalive)), interval = BIRD_INTERVAL]{
             while (sleep(interval)) {
                 m->update_me(spawn_after(rand<double>(0, 1), [&]{
-                    for (auto i = rand<int>(1, m->params.max_simul_bats); i--;) {
-                        auto greysLeft = m->params.grey_bats - m->created_grey_bats;
-                        auto yellowsLeft = m->params.yellow_bats - m->created_yellow_bats;
-                        if (greysLeft || yellowsLeft) {
-                            if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
-                                createBird(!greysLeft ? bt_yellow :
-                                           !yellowsLeft ? bt_grey :
-                                           rand<long>(0, greysLeft + yellowsLeft - 1) < greysLeft ? bt_grey : bt_yellow);
+                    for (auto i = rand<int>(1, MAX_SIMUL_BATS); i--;) {
+                        if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
+                            auto t = rand<float>(0, 1);
+                            if (t >= 0 && t <= GREY_BAT_RATIO) {
+                                createBird(bt_grey);
+                            } else if (t > GREY_BAT_RATIO && t <= GREY_BAT_RATIO + YELLOW_BAT_RATIO) {
+                                createBird(bt_yellow);
+                            } else {
+                                createBombBat();
                             }
                         }
                     }
@@ -927,7 +937,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
         });
 
         // TEMPORARY: hard-coded creation of bomb bat
-        m->update_me(spawn_after(4, [=]{
+        /*m->update_me(spawn_after(4, [=]{
             auto STARTPOS = vec2{rand<float>(-10, 10), top + 2};
             auto CARROTPOS = vec2{clamp(rand<float>(STARTPOS.x - 5, STARTPOS.x + 5), -8, 8), rand<float>(top - 2.5, top - 5)};
             auto & bb = m->emplace<BombBatImpl>(STARTPOS, CARROTPOS);
@@ -935,7 +945,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
             m->bjb.insert(BatJointBomb{&bb, bb.holdBomb(*bmb.body()), &bmb});
             auto & car = m->emplace<BombBatCarrotImpl>(CARROTPOS);
             m->bbcr.insert(BombBatCarrotRel{&bb, &car});
-        }));
+        }));*/
     }
 
     m->onCollision([=](BirdImpl & bird, CharacterImpl & character, cpArbiter * arb) {
@@ -962,8 +972,8 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
                     if (sleep(0.5)) {
                         tension_stop();
                         lose();
-                        if (sleep(2) <= 0) {
-                            gameOver(false);
+                        if (sleep(2)) { // <= 0) {
+                            gameOver();
                         }
                     }
                 });
@@ -987,7 +997,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     });
 
     m->onCollision([=](DartImpl &, BombImpl &, cpArbiter * arb) {
-        return !m->levelOver();
+        return !m->game_over;
     });
 
     m->onPostSolve([=](DartImpl & dart, BombImpl & bomb, cpArbiter * arb) {
@@ -1088,7 +1098,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     });
 
     m->onCollision([=](DartImpl &, BombBatImpl & bat, cpArbiter * arb) {
-        return !(bat.state() == BombBat::State::dying || m->levelOver());
+        return !(bat.state() == BombBat::State::dying || m->game_over);
     });
 
     m->onPostSolve([=](DartImpl & dart, BombBatImpl & bat, cpArbiter * arb) {
@@ -1158,7 +1168,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     });
 
     m->onPostSolve([=](DartImpl & dart, BirdImpl & bird, cpArbiter * arb) {
-        if (dart.active && !m->level_failed) {
+        if (dart.active && !m->game_over) {
             ++m->playerStats.hits;
             shot();
 
@@ -1240,7 +1250,7 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     });
 
     m->onCollision([=](DartImpl & dart, CharacterImpl & character, cpArbiter * arb) {
-        if (dart.active && !m->levelOver()) {
+        if (dart.active && !m->game_over) {
             // Score friendly fire against character
             auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
                             >> where([&](auto && c) { return m->firedDart(c, dart); }));
@@ -1398,20 +1408,17 @@ Game::Game(SpaceTime & st, GameMode mode, int level, float top) : GameBase{st}, 
     });
 }
 
-void Game::gameOver(bool passed) {
+void Game::gameOver() {
     m->ticker_keepalive = {};
-    m->level_passed = passed;
+    m->game_over = true;
     m->watch.stop();
-    if (passed) {
-        m->playerStats.time = m->watch.time();
-        m->playerStats.remCharacters = m->rem_chars;
-        m->score += m->rem_chars * SCORE_CHAR_SURVIVED;
-        for (auto & c : m->actors<CharacterImpl>()) {
-            archiveCharacterStats(c.stats);
-        }
-    } else {
-        failed();
+    m->playerStats.time = m->watch.time();
+    //m->playerStats.remCharacters = m->rem_chars;
+    //m->score += m->rem_chars * SCORE_CHAR_SURVIVED;
+    for (auto & c : m->actors<CharacterImpl>()) {
+        archiveCharacterStats(c.stats);
     }
+
     tension_stop();
     end();
 }
