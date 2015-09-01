@@ -855,8 +855,6 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             show_menu();
         }));
     } else {
-        //registerTextAlert("LEVEL " + std::to_string(level), {0, top - 5}, 3.5, 1);
-
         m->setGravity({0, WORLD_GRAVITY});
         auto seg = [=] (vec2 v1, vec2 v2, CollisionType ct) { return m->sensor(m->segmentShape(v1, v2), ct); };
         m->abyssWalls[0] = seg({-10, top}, {-10, -10}, ct_abyss);  // left
@@ -864,7 +862,6 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         m->abyssWalls[2] = seg({-10, top}, {10,  top}, ct_abyss);  // top
         m->startleLine = seg({-10, top - 1}, {10, top - 1}, ct_startle);
         m->back_btn->setY(top - 0.8);
-        m->restart_btn->setY(top - 0.8);
 
         //generateLevel();
 
@@ -884,6 +881,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         };
 
         auto createCharacters = [=]{
+            m->rem_chars = CHARACTERS;
+
             std::random_shuffle(std::begin(char_defs), std::end(char_defs)); // shuffle characters
             
             float min = -9;
@@ -1434,9 +1433,6 @@ Game::State const & Game::state() const { return *m; }
 TouchHandler Game::fingerTouch(vec2 const & p, float radius) {
     if (auto backHandler = m->back_btn->handleTouch(p)) {
         return backHandler;
-    }
-    if (auto restartHandler = m->restart_btn->handleTouch(p)) {
-        return restartHandler;
     }
 
     CharacterImpl * character = nullptr;

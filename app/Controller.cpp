@@ -196,7 +196,6 @@ void Controller::newGame(GameMode mode) {
         auto gameOver = emplaceController<GameOver>(mode, score, *m->bestScore, state.playerStats, state.characterStats);
         gameOver->back      ->clicked += newGame(m_menu);
         gameOver->restart   ->clicked += newGame(m->mode);
-        gameOver->next      ->clicked += newGame(m->mode);
         gameOver->backf     ->clicked += newGame(m_menu);
         gameOver->restartf  ->clicked += newGame(m->mode);
     };
@@ -221,14 +220,6 @@ void Controller::newGame(GameMode mode) {
         m->newGame = true;
         m->mode = m_menu;
     };
-
-    state.restart_btn->clicked += [=] {
-        click();
-        m->game->end();
-//        m->newGame = true;
-//        m->mode = m_play;
-    };
-
 }
 
 bool Controller::onUpdate(float dt) {
@@ -321,17 +312,12 @@ void Controller::onDraw() {
                                 pmv() * mat4::translate({9, m->top-1, 0}) * mat4::scale(0.5), -0.1);
 
         state.back_btn->draw(pmv());
-        state.restart_btn->draw(pmv());
 
         SpriteProgram::drawText(std::to_string(state.grey_bats_killed), font.glyphs, -1, pmv() * mat4::translate({-2, m->top-1, 0}) * mat4::scale(0.5));
         SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-2.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
 
         SpriteProgram::drawText(std::to_string(state.yellow_bats_killed), font.glyphs, -1, pmv() * mat4::translate({1.2, m->top-1, 0}) * mat4::scale(0.5));
         SpriteProgram::draw(atlas.yellowbathead, pmv() * mat4::translate({0.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
-
-        /*if (!m->game->state().started) {
-            SpriteProgram::drawText("LEVEL " + std::to_string(m->level), font.glyphs, 0, pmv() * mat4::translate({0, m->top - 5, 0}), -0.1);
-        }*/
 
         if (m->game->state().show_char_score) {
             for (auto const & c : m->game->actors<Character>()) {
