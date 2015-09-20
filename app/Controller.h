@@ -20,6 +20,7 @@ private:
 
     virtual bool onUpdate(float dt) override;
     virtual void onDraw() override;
+    virtual bool wantTimerUpdate() const override;
     virtual void onResize(brac::vec2 const & size) override;
     virtual brac::TouchHandler onTouch(brac::vec2 const & worldPos, float radius) override;
 };

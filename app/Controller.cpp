@@ -234,6 +234,11 @@ bool Controller::onUpdate(float dt) {
     return true;
 }
 
+bool Controller::wantTimerUpdate() const {
+    // Change this to freeze all timers.
+    return true;
+}
+
 void Controller::onDraw() {
     auto const & state = m->game->state();
 
