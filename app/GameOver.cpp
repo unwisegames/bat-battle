@@ -3,7 +3,7 @@
 #include "atlas2.sprites.h"
 #include "background.sprites.h"
 #include "font.sprites.h"
-#include "character.sprites.h"
+#include "character1.sprites.h"
 #include "characters.sprites.h"
 
 using namespace brac;
@@ -94,7 +94,7 @@ void GameOver::onDraw() {
     SpriteProgram::draw(cs_[mom_].mugshot,  pmv() * mat4::scale(2) * mat4::translate({0.85, 0.15, 0}));
     SpriteProgram::draw(characters.dart,    pmv() * mat4::translate({-0.1, -1.5, 0})    * mat4::scale(0.5));
     SpriteProgram::draw(atlas.bathead,      pmv() * mat4::translate({-0.2, -1.95, 0})   * mat4::scale(0.25));
-    SpriteProgram::draw(character.mugshot,  pmv() * mat4::translate({2, -1.5, 0})       * mat4::scale(0.4));
+    SpriteProgram::draw(character1.mugshot, pmv() * mat4::translate({2, -1.5, 0})       * mat4::scale(0.4));
     SpriteProgram::draw(atlas2.target,      pmv() * mat4::translate({2, -1.95, 0})      * mat4::scale(0.3));
     drawValueText(s(cs_[mom_].score) + " POINTS",                                                         {1.6, -1},     0.25, -0.15, 0);
     drawValueText(s(cs_[mom_].dartsFired) + (cs_[mom_].dartsFired == 1 ? " DART" : " DARTS") + " FIRED",    {0, -1.6},      0.16, -0.15, -1);

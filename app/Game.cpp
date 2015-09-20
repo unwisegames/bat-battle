@@ -112,7 +112,7 @@ struct CharacterImpl : BodyShapes<Character> {
             cpShapeSetElasticity(&*shape, 1);
         }
 
-        shape = newCircleShape(0.3, {0, 0})(body());
+        shape = newCircleShape(0.3, {0, 0})(this, body());
         cpShapeSetFriction(&*shape, 0.2);
         cpShapeSetLayers(&*shape, l_play);
         cpShapeSetGroup(&*shape, gr_character);
@@ -355,7 +355,7 @@ struct BombBatCarrotImpl : BodyShapes<BombBatCarrot> {
     {
         setForce({0, -WORLD_GRAVITY});
 
-        shape = newCircleShape(0.1, {0, 0})(body());
+        shape = newCircleShape(0.1, {0, 0})(this, body());
         cpShapeSetLayers(&*shape, l_play);
         cpShapeSetSensor(&*shape, true);
     }
