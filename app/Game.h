@@ -3,6 +3,7 @@
 
 #include "UI.h"
 #include "atlas.sprites.h"
+#include "characters.sprites.h"
 
 #include <bricabrac/Game/GameActor.h>
 #include <bricabrac/Utility/Signal.h>
@@ -155,6 +156,8 @@ public:
         size_t score = 0;
         GameMode mode;
         std::shared_ptr<Button> back_btn{std::make_shared<Button>(atlas.back, brac::vec2{-9.2, 10}, 1)};
+        std::shared_ptr<Button> pause_btn{std::make_shared<Button>(characters.pause, brac::vec2{-7.9, 10}, 1)};
+        std::shared_ptr<Button> play_btn{std::make_shared<Button>(atlas.play,        brac::vec2{ 0, 7 }, 1)};
         //size_t rem_grey_bats;
         //size_t rem_yellow_bats;
         size_t grey_bats_killed = 0;

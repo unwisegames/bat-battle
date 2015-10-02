@@ -30,6 +30,7 @@ struct Controller::Members {
     GameMode mode = m_menu;
     float top = 0;
     sounds audio{0.5, 1};
+    bool paused = false;
     std::unique_ptr<NormalShadeProgram> shadeProgram;
 
     std::vector<NormalShadeVertex> flamebuf;
@@ -220,23 +221,35 @@ void Controller::newGame(GameMode mode) {
         m->newGame = true;
         m->mode = m_menu;
     };
+
+    state.pause_btn->clicked += [=] {
+        m->paused = !m->paused;
+    };
+
+    state.play_btn->clicked += [=] {
+        m->paused = false;
+    };
 }
 
 bool Controller::onUpdate(float dt) {
-    if (!m->game->update(dt)) {
-        //newGame();
+    if (!m->paused) {
+        if (!m->game->update(dt)) {
+            //newGame();
+        }
+
+
+        if (m->newGame) {
+            newGame(m->mode);
+            return false;
+        }
+        m->angle += dt;
     }
-    if (m->newGame) {
-        newGame(m->mode);
-        return false;
-    }
-    m->angle += dt;
     return true;
 }
 
 bool Controller::wantTimerUpdate() const {
     // Change this to freeze all timers.
-    return true;
+    return !m->paused;
 }
 
 void Controller::onDraw() {
@@ -317,6 +330,7 @@ void Controller::onDraw() {
                                 pmv() * mat4::translate({9, m->top-1, 0}) * mat4::scale(0.5), -0.1);
 
         state.back_btn->draw(pmv());
+        state.pause_btn->draw(pmv());
 
         SpriteProgram::drawText(std::to_string(state.grey_bats_killed), font.glyphs, -1, pmv() * mat4::translate({-2, m->top-1, 0}) * mat4::scale(0.5));
         SpriteProgram::draw(atlas.bathead, pmv() * mat4::translate({-2.6, m->top - 0.7f, 0}) * mat4::scale(0.8));
@@ -336,6 +350,12 @@ void Controller::onDraw() {
             sprite_context->alpha = a.alpha;
             SpriteProgram::drawText(a.s, font.glyphs, 0, pmv() * mat4::translate({a.pos.x, a.pos.y, 0}) * mat4::scale(a.scale), -0.1);
             sprite_context->alpha = 1;
+        }
+
+        if (m->paused) {
+            SpriteProgram::draw(atlas.fade, pmv());
+            SpriteProgram::drawText("PAUSED", font.glyphs, 0, pmv() * mat4::translate({0, 9, 0}), -0.1);
+            state.play_btn->draw(pmv());
         }
     }
 

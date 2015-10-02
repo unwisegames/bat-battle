@@ -14,4 +14,8 @@ sprites(
     dart=floodfill((6, 9), scale=5),
     flame=floodfill((12, 9), scale=5, origin=(8, 9)),
     dot=floodfill((5, 11), scale=4),
+    pause=[
+        floodfill((11, 14), scale=8, origin='center'),
+        floodfill((14, 14), scale=8, origin='center')
+    ],
 )

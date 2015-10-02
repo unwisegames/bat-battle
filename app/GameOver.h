@@ -12,8 +12,8 @@ class GameOver : public brac::GameController {
 public:
     GameOver(GameMode m, size_t score, size_t best, PlayerStats ps, std::vector<CharacterStats> cs);
 
-    std::shared_ptr<Button> back        = makeButton(atlas.back     , {-5, 0}, 1.1);
-    std::shared_ptr<Button> restart     = makeButton(atlas.restart  , {5, 0}, 1.1);
+    std::shared_ptr<Button> back        = makeButton(atlas.back     , {-3, 0}, 1.1);
+    std::shared_ptr<Button> restart     = makeButton(atlas.restart  , {3, 0}, 1.1);
     std::shared_ptr<Button> backf       = makeButton(atlas.back     , {-1, -1}, 1.1);
     std::shared_ptr<Button> restartf    = makeButton(atlas.restart  , {1, -1}, 1.1);
 

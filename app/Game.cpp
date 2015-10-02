@@ -102,6 +102,7 @@ struct GraveImpl : BodyShapes<Grave> {
 struct CharacterImpl : BodyShapes<Character> {
     vec2 launchVel_ = {0, 0};
     ShapePtr shape;
+    int type_;
 
     CharacterStats stats;
 
@@ -118,6 +119,8 @@ struct CharacterImpl : BodyShapes<Character> {
         cpShapeSetGroup(&*shape, gr_character);
 
         stats.mugshot = *char_defs[type].mug;
+
+        type_ = type;
 
         spawn([ticks = chan::spawn_quantize(update_me(), 5.0)]{
             while (ticks >> nullptr) {
@@ -207,6 +210,10 @@ struct CharacterImpl : BodyShapes<Character> {
         }
     }
 
+    void cry() {
+        setState(Character::State::crying);
+    }
+
     void celebrate() {
         if (!isDead()) {
             setAngle(0);
@@ -226,6 +233,7 @@ constexpr float F = 1;
 struct BirdImpl : BodyShapes<Bird> {
     bool hasCaptive = false;
     bool fromWhence = false;
+    bool ignoreAbyss = false;
     vec2 escapeVel;
     vec2 desired_pos;
     BirdType bird_type;
@@ -511,6 +519,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     Relation<BombBatCarrotRel>          bbcr;
     Relation<CharacterDetonatedBomb>    cdb;
     brac::Stopwatch watch{false};
+    std::vector<int> deadChars;
 
     Members(SpaceTime & st) : Impl{st} { }
 
@@ -692,6 +701,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         m->cps >> removeIf([&](auto && cps) { return cps.c == &c; });
 
         archiveCharacterStats(c.stats);
+        m->deadChars.emplace_back(c.type_);
         retargetBirdsChasingMe(c);
         m->removeWhenSpaceUnlocked(c);
     };
@@ -862,6 +872,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         m->abyssWalls[2] = seg({-10, top}, {10,  top}, ct_abyss);  // top
         m->startleLine = seg({-10, top - 1}, {10, top - 1}, ct_startle);
         m->back_btn->setY(top - 0.8);
+        m->pause_btn->setY(top - 0.78);
 
         //generateLevel();
 
@@ -912,7 +923,46 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             m->bbcr.insert(BombBatCarrotRel{&bb, &car});
         };
 
+        auto createCharacterRescueOpportunity = [=]() {
+            // select random persona from deadChars, defaulted to 1 for testing - method should only be called after
+            // at least one character has been kidnapped
+            auto persona = m->deadChars.size() > 0 ? m->deadChars[rand<int>(0, m->deadChars.size() - 1)] : 1;
+            auto height = rand<float>(7.5, 9);
+            auto dir = randomChoice({-1, 1});
+
+            m->deadChars.erase(std::remove(m->deadChars.begin(), m->deadChars.end(), persona), m->deadChars.end());
+
+            auto & b = m->emplace<BirdImpl>(bt_grey, vec2{static_cast<float>(-10 * dir), height}, 1.0f);
+            b.hasCaptive = true; // prevent immediate bird/character collision
+
+            // this is a dodgy way of avoiding the initial bird-abyss collision
+            // that would immediately remove both impls. Not happy with this sol'n
+            // but does the job for now.
+            b.ignoreAbyss = true;
+            m->update_me(spawn_after(5, [&]{
+                b.ignoreAbyss = false;
+            }));
+
+            vec2 charPos = vec2{static_cast<float>(-10 * dir), static_cast<float>(height - 0.5)};
+
+            auto & c = m->emplace<CharacterImpl>(persona, charPos);
+            auto & ps = m->emplace<PersonalSpaceImpl>(charPos);
+            m->cps.insert(CharacterPersonalSpace{&c, ps.attachCharacterBody(*c.body()), &ps});
+            c.kidnap();
+            m->cjb.insert(CharacterJointBird{&c, b.grabCharacter(*c.body()), &b});
+
+            b.escapeVel = vec2{static_cast<float>(1.5 * dir), 0.55}; // positive y vel is magic number to offset character weight
+
+            for (auto & shape : c.shapes()) cpShapeSetGroup(&*shape, gr_bird);
+
+            ++m->rem_chars;
+        };
+
         createCharacters();
+
+        m->update_me(spawn_after(6, [=]{
+            createCharacterRescueOpportunity();
+        }));
 
         // create birds
         m->ticker_keepalive = {};
@@ -1380,7 +1430,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             }
         };
 
-        if (cpArbiterIsFirstContact(arb)) {
+        if (cpArbiterIsFirstContact(arb) && !bird.ignoreAbyss) {
             auto matching = from(m->cjb) >> ref() >> where([&](auto && cjb) { return cjb.get().b == &bird; });
             if (matching >> any()) {
                 auto & cjb = (matching >> first()).get();
@@ -1433,6 +1483,12 @@ Game::State const & Game::state() const { return *m; }
 TouchHandler Game::fingerTouch(vec2 const & p, float radius) {
     if (auto backHandler = m->back_btn->handleTouch(p)) {
         return backHandler;
+    }
+    if (auto pauseHandler = m->pause_btn->handleTouch(p)) {
+        return pauseHandler;
+    }
+    if (auto playHandler = m->play_btn->handleTouch(p)) {
+        return playHandler;
     }
 
     CharacterImpl * character = nullptr;
