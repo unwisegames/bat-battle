@@ -263,7 +263,7 @@ void Controller::onDraw() {
 
     for (auto const & b : m->game->actors<Bird>()) {
         if (b.isFlying()) {
-            SpriteProgram::drawActor(b, pmv(), b.vel().x < 0 ? mat4::scale(vec3{-1, 1, 1}) : mat4::identity());
+            SpriteProgram::drawActor(b, pmv(), b.velocity().x < 0 ? mat4::scale(vec3{-1, 1, 1}) : mat4::identity());
         } else {
             SpriteProgram::drawActor(b, pmv());
         }
@@ -272,7 +272,7 @@ void Controller::onDraw() {
     for (auto const & c : m->game->actors<Character>()) {
         if (c.isAiming()) {
             float dt = 0.01;
-            vec2 p = c.pos() - vec2::polar(LAUNCH_OFFSET, c.angle() + M_PI_2);
+            vec2 p = c.position() - vec2::polar(LAUNCH_OFFSET, c.angle() + M_PI_2);
             vec2 v = c.launchVel();
             vec2 g_dt = vec2{0, WORLD_GRAVITY} * dt;
             for (int i = 0; p.y > 0; ++i) {
@@ -288,7 +288,7 @@ void Controller::onDraw() {
     SpriteProgram::draw(m->game->actors<Bomb>       (), pmv());
     for (auto const & b : m->game->actors<Bomb>()) {
         if (b.countdown > 0) {
-            SpriteProgram::drawText(std::to_string(b.countdown), font.glyphs, 0, pmv() * mat4::translate({b.pos().x, b.pos().y - float(0.2), 0}) * mat4::scale(0.25));
+            SpriteProgram::drawText(std::to_string(b.countdown), font.glyphs, 0, pmv() * mat4::translate({b.position().x, b.position().y - float(0.2), 0}) * mat4::scale(0.25));
         }
     }
     SpriteProgram::draw(m->game->actors<BombBat>                (), pmv());
@@ -299,7 +299,7 @@ void Controller::onDraw() {
 
     for (auto const & d : m->game->actors<Dart>()) {
         if (d.active) {
-            SpriteProgram::drawText(std::to_string(d.score), font.glyphs, 0, pmv() * mat4::translate({d.pos().x, d.pos().y + float(0.6), 0}) * mat4::scale(0.3), -0.1);
+            SpriteProgram::drawText(std::to_string(d.score), font.glyphs, 0, pmv() * mat4::translate({d.position().x, d.position().y + float(0.6), 0}) * mat4::scale(0.3), -0.1);
 
             std::vector<NormalShadeVertex> buf;
             auto ctx = m->shadeProgram->context();
@@ -341,7 +341,7 @@ void Controller::onDraw() {
         if (m->game->state().show_char_score) {
             for (auto const & c : m->game->actors<Character>()) {
                 if (!c.isDead()) {
-                    SpriteProgram::drawText(std::to_string(SCORE_CHAR_SURVIVED), font.glyphs, 0, pmv() * mat4::translate({c.pos().x, c.pos().y + float(0.8), 0}) * mat4::scale(0.3), -0.1);
+                    SpriteProgram::drawText(std::to_string(SCORE_CHAR_SURVIVED), font.glyphs, 0, pmv() * mat4::translate({c.position().x, c.position().y + float(0.8), 0}) * mat4::scale(0.3), -0.1);
                 }
             }
         }
