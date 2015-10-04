@@ -242,18 +242,16 @@ struct BirdImpl : BodyShapes<Bird> {
     BirdImpl(cpSpace * space, BirdType type, vec2 const & pos, float sp)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], {gr_bird, cat_play, cat_play}}
     {
+        cpBodySetType(body(), CP_BODY_TYPE_KINEMATIC);
         bird_type = type;
         resilience = int(type);
         speed = rand<float>(sp - (sp * 0.3), sp + (sp * 0.3));
-
-        setForce({0, -WORLD_GRAVITY});
     }
 
     void newFrame(bool loopChanged) override {
         if (!loopChanged && frame() == 0) {
             if (isFlying() && bird_type == bt_yellow && resilience == 0) {
                 setVelocity({0, 0});
-                cpBodyApplyImpulseAtLocalPoint(body(), to_cpVect({rand<float>(-0.5, 0.5), rand<float>(-0.5, 0.5)}), to_cpVect({0, 0}));
             }
         }
     }
@@ -277,9 +275,7 @@ struct BirdImpl : BodyShapes<Bird> {
             }
 
             if (isFlying() && !hasCaptive) {
-                auto dv = unit(desired_pos - position()) * speed - velocity();
-                float epsilon = 0.01;
-                setForce(((length_sq(dv) > epsilon) * F * unit(dv)) + vec2{0, -WORLD_GRAVITY});
+                setVelocity(unit(desired_pos - position()) * speed);
             } else {
                 // maintain velocity
                 setVelocity(escapeVel * speed);
@@ -324,8 +320,7 @@ struct BombBatImpl : BodyShapes<BombBat> {
     BombBatImpl(cpSpace * space, vec2 const & pos, vec2 const & des_pos)
     : BodyShapes{space, newBody(1, 1, pos), bomb.bat, {gr_bird, cat_play, cat_play}}
     {
-        setForce({0, -WORLD_GRAVITY});
-
+        cpBodySetType(body(), CP_BODY_TYPE_KINEMATIC);
         desired_pos = des_pos;
     }
 
@@ -337,7 +332,9 @@ struct BombBatImpl : BodyShapes<BombBat> {
         setAngle(0);
         auto dv = unit(desired_pos - position()) * 1 - velocity(); // "1" = speed
         float epsilon = 0.01;
-        setForce(((length_sq(dv) > epsilon) * F * unit(dv)) + vec2{0, -WORLD_GRAVITY});
+        if (length_sq(dv) > epsilon) {
+            setForce(F * unit(dv));
+        }
     }
 
     array<ConstraintPtr, 2> holdBomb(cpBody & b) {
@@ -360,8 +357,6 @@ struct BombBatCarrotImpl : BodyShapes<BombBatCarrot> {
     BombBatCarrotImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), sensor(bomb.bomb), {CP_NO_GROUP, cat_play, cat_play}}
     {
-        setForce({0, -WORLD_GRAVITY});
-
         shape = newCircleShape(0.1, {0, 0})(this, body());
         cpShapeSetFilter(&*shape, {CP_NO_GROUP, cat_play, cat_play});
         cpShapeSetSensor(&*shape, true);
@@ -374,14 +369,10 @@ struct BombImpl : BodyShapes<Bomb> {
     BombImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), bomb.bomb, {gr_bird, cat_play, cat_play}}
     {
-        setForce({0, -WORLD_GRAVITY});
     }
 
     void newState(size_t & loop) override {
         loop = size_t(state());
-    }
-
-    virtual void doUpdate(float) override {
     }
 };
 
@@ -389,14 +380,10 @@ struct BlastImpl : BodyShapes<Blast> {
     BlastImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), sensor(blast.blast), {CP_NO_GROUP, cat_play, cat_play}}
     {
-        setForce({0, -WORLD_GRAVITY});
     }
 
     void newState(size_t & loop) override {
         loop = size_t(state());
-    }
-
-    virtual void doUpdate(float) override {
     }
 };
 
@@ -404,7 +391,6 @@ struct CharacterExplosionImpl : BodyShapes<CharacterExplosion> {
     CharacterExplosionImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), sensor(blast.characterblast), {CP_NO_GROUP, cat_play, cat_play}}
     {
-        setForce({0, -WORLD_GRAVITY});
     }
 };
 
@@ -864,12 +850,12 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             show_menu();
         }));
     } else {
-        m->setGravity({0, WORLD_GRAVITY});
+        m->setGravity(WORLD_GRAVITY);
         auto seg = [=] (vec2 v1, vec2 v2, CollisionType ct) { return m->sensor(m->segmentShape(v1, v2), ct); };
-        m->abyssWalls[0] = seg({-10, top}, {-10, -10}, ct_abyss);  // left
-        m->abyssWalls[1] = seg({10,  top}, {10,  -10}, ct_abyss);  // right
-        m->abyssWalls[2] = seg({-10, top}, {10,  top}, ct_abyss);  // top
-        m->startleLine = seg({-10, top - 1}, {10, top - 1}, ct_startle);
+        m->abyssWalls[0] = seg({-10, top    }, {-10, -10    }, ct_abyss);  // left
+        m->abyssWalls[1] = seg({ 10, top    }, { 10, -10    }, ct_abyss);  // right
+        m->abyssWalls[2] = seg({-10, top    }, { 10, top    }, ct_abyss);  // top
+        m->startleLine   = seg({-10, top - 1}, { 10, top - 1}, ct_startle);
         m->back_btn->setY(top - 0.8);
         m->pause_btn->setY(top - 0.78);
 

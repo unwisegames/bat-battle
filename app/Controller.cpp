@@ -274,7 +274,7 @@ void Controller::onDraw() {
             float dt = 0.01;
             vec2 p = c.position() - vec2::polar(LAUNCH_OFFSET, c.angle() + M_PI_2);
             vec2 v = c.launchVel();
-            vec2 g_dt = vec2{0, WORLD_GRAVITY} * dt;
+            vec2 g_dt = WORLD_GRAVITY * dt;
             for (int i = 0; p.y > 0; ++i) {
                 if (i % 4 == 0) {
                     SpriteProgram::draw(characters.dot, pmv() * mat4::translate({p, 0}));
