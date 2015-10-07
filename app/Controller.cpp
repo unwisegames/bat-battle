@@ -13,6 +13,7 @@
 #include <bricabrac/Utility/UrlOpener.h>
 #include <bricabrac/Math/Random.h>
 #include <bricabrac/Shader/ShaderUtil.h>
+#include <bricabrac/Social/Share.h>
 
 #include <iostream>
 
@@ -212,7 +213,8 @@ void Controller::newGame(GameMode mode) {
         };
         menu->twitter->clicked += [=]{
             click();
-            UrlOpener::open("http://www.twitter.com/UnwiseGames");
+            social::share(social::Service::twitter, "Claws is awesome!");
+            //UrlOpener::open("http://www.twitter.com/UnwiseGames");
         };
     };
 
