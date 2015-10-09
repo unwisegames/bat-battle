@@ -213,8 +213,9 @@ void Controller::newGame(GameMode mode) {
         };
         menu->twitter->clicked += [=]{
             click();
-            social::share(social::Service::twitter, "Claws is awesome!");
-            //UrlOpener::open("http://www.twitter.com/UnwiseGames");
+            social::share(social::Service::twitter,
+                          "Claws is awesome!",
+                          {"http://www.twitter.com/UnwiseGames"});
         };
     };
 
