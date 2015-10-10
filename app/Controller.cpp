@@ -198,8 +198,7 @@ void Controller::newGame(GameMode mode) {
         auto gameOver = emplaceController<GameOver>(mode, score, *m->bestScore, state.playerStats, state.characterStats);
         gameOver->back      ->clicked += newGame(m_menu);
         gameOver->restart   ->clicked += newGame(m->mode);
-        gameOver->backf     ->clicked += newGame(m_menu);
-        gameOver->restartf  ->clicked += newGame(m->mode);
+        gameOver->cont      ->clicked += [=] { m->game->continueGame(); };
     };
 
     m->game->show_menu += [=] {
@@ -236,10 +235,11 @@ void Controller::newGame(GameMode mode) {
 
 bool Controller::onUpdate(float dt) {
     if (!m->paused) {
-        if (!m->game->update(dt)) {
-            //newGame();
+        if (!m->game->state().game_over) {
+            if (!m->game->update(dt)) {
+                //newGame();
+            }
         }
-
 
         if (m->newGame) {
             newGame(m->mode);

@@ -357,6 +357,7 @@ struct BombBatCarrotImpl : BodyShapes<BombBatCarrot> {
     BombBatCarrotImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), sensor(bomb.bomb), {CP_NO_GROUP, cat_play, cat_play}}
     {
+        cpBodySetType(body(), CP_BODY_TYPE_STATIC);
         shape = newCircleShape(0.1, {0, 0})(this, body());
         cpShapeSetFilter(&*shape, {CP_NO_GROUP, cat_play, cat_play});
         cpShapeSetSensor(&*shape, true);
@@ -545,6 +546,17 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
         alerts.erase(std::remove_if(alerts.begin(), alerts.end(), [&](const TextAlert & a){ return !a.alpha; }), alerts.end());
     }
 
+    void popup (std::string s, vec2 pos, float duration, float scale) {
+        alertsHousekeeping();
+        auto a = alerts.insert(alerts.begin(), {s, pos, scale});
+
+        update_me(spawn_consumer<double>([=](auto r) {
+            if (sleep(duration, r) <= 0) {
+                for (double dt; r >> dt && (a->alpha -= 2 * dt) > 0;) { }
+                a->alpha = 0;
+            }
+        }));
+    }
 };
 
 Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Members{st}} {
@@ -954,25 +966,29 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         }));
 
         // create birds
-        m->ticker_keepalive = {};
-        spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker_keepalive)), interval = BIRD_INTERVAL]{
-            while (sleep(interval)) {
-                m->update_me(spawn_after(rand<double>(0, 1), [&]{
-                    for (auto i = rand<int>(1, MAX_SIMUL_BATS); i--;) {
-                        if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
-                            auto t = rand<float>(0, 1);
-                            if (t >= 0 && t <= GREY_BAT_RATIO) {
-                                createBird(bt_grey);
-                            } else if (t > GREY_BAT_RATIO && t <= GREY_BAT_RATIO + YELLOW_BAT_RATIO) {
-                                createBird(bt_yellow);
-                            } else {
-                                createBombBat();
+        auto createBirds = [=] {
+            m->ticker_keepalive = {};
+            spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker_keepalive)), interval = BIRD_INTERVAL]{
+                while (sleep(interval)) {
+                    m->update_me(spawn_after(rand<double>(0, 1), [&]{
+                        for (auto i = rand<int>(1, MAX_SIMUL_BATS); i--;) {
+                            if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
+                                auto t = rand<float>(0, 1);
+                                if (t >= 0 && t <= GREY_BAT_RATIO) {
+                                    createBird(bt_grey);
+                                } else if (t > GREY_BAT_RATIO && t <= GREY_BAT_RATIO + YELLOW_BAT_RATIO) {
+                                    createBird(bt_yellow);
+                                } else {
+                                    createBombBat();
+                                }
                             }
                         }
-                    }
-                }));
-            }
-        });
+                    }));
+                }
+            });
+        };
+
+        createBirds();
 
         // TEMPORARY: hard-coded creation of bomb bat
         /*m->update_me(spawn_after(4, [=]{
@@ -1019,6 +1035,13 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                         }
                     }
                 });
+                for (auto & bat : m->actors<BirdImpl>()) {
+                    if (!bat.hasCaptive) {
+                        m->targets >> removeIf([&](auto && target) { return target.b == &bat; });
+                        bat.fromWhence = true;
+                        bat.setDesiredPos({rand<float>(-6, 6), rand<float>(top, top + 2)});
+                    }
+                }
             } else {
                 // send other birds after new target
                 from(m->targets) >> for_each([&](auto && targets) {
@@ -1317,9 +1340,14 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         return false;
     });
 
+    m->onCollision([=](CharacterImpl & character, NoActor<ct_ground> &, cpArbiter * arb) {
+        return character.velocity().y < 1;
+    });
+
     m->onPostSolve([=](CharacterImpl & character, NoActor<ct_ground> &, cpArbiter * arb) {
         if (cpArbiterIsFirstContact(arb)) {
             character.setAngle(0);
+            cpBodySetAngularVelocity(character.body(), 0);
             switch (character.state()) {
                 case Character::State::startled:
                     character.setState(Character::State::determined);
@@ -1374,7 +1402,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
     m->onCollision([=](BirdImpl & bird, NoActor<ct_attack> &) {
         if (!(from(m->targets) >> any([&](auto && t) { return t.b == &bird; })) &&
             !m->hasCaptive(bird) &&
-            bird.state() != Bird::State::dying) {
+            bird.state() != Bird::State::dying &&
+            !bird.fromWhence) {
             newTarget(bird);
         }
     });
@@ -1442,6 +1471,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                 forceBirdReplace();
             } else {
                 if (bird.fromWhence) {
+                    m->targets >> removeIf([&](auto && target) { return target.b == &bird; });
                     forceBirdReplace();
                     m->removeWhenSpaceUnlocked(bird);
                 }
@@ -1451,7 +1481,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
 }
 
 void Game::gameOver() {
-    m->ticker_keepalive = {};
+    //m->ticker_keepalive = {};
     m->game_over = true;
     m->watch.stop();
     m->playerStats.time = m->watch.time();
@@ -1462,7 +1492,33 @@ void Game::gameOver() {
     }
 
     tension_stop();
-    end();
+
+    ended();
+    //end();
+}
+
+void Game::continueGame() {
+    m->game_over = false;
+    m->watch.start();
+
+    auto newCharacter = [=](int persona, vec2 pos) {
+        auto & c = m->emplace<CharacterImpl>(persona, pos);
+        auto & ps = m->emplace<PersonalSpaceImpl>(pos);
+        m->cps.insert(CharacterPersonalSpace{&c, ps.attachCharacterBody(*c.body()), &ps});
+        c.setState(Character::State::rescued);
+        cpBodyApplyImpulseAtLocalPoint(c.body(), to_cpVect({0, 20}), to_cpVect({0, 0}));
+        cpBodySetAngularVelocity(c.body(), 20);
+        ++m->rem_chars;
+    };
+
+    std::random_shuffle(std::begin(char_defs), std::end(char_defs)); // shuffle characters
+    newCharacter(1, {-7, 0});
+    newCharacter(2, {-2.5, 0});
+    newCharacter(3, {2.5, 0});
+    newCharacter(4, {7, 0});
+    m->popup("GAME ON", vec2{0, 9}, 3, 1);
+
+    tension_start();
 }
 
 void Game::archiveCharacterStats(CharacterStats s) {
@@ -1542,7 +1598,6 @@ TouchHandler Game::fingerTouch(vec2 const & p, float radius) {
         }
     }
 
-    
     return {};
 }
 

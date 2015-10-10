@@ -210,6 +210,7 @@ public:
     
     virtual brac::TouchHandler fingerTouch(brac::vec2 const & p, float radius) override;
     void gameOver();
+    void continueGame();
     void archiveCharacterStats(CharacterStats s);
 
 private:
