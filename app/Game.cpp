@@ -101,7 +101,6 @@ struct GraveImpl : BodyShapes<Grave> {
 
 struct CharacterImpl : BodyShapes<Character> {
     vec2 launchVel_ = {0, 0};
-    ShapePtr shape;
     int type_;
 
     CharacterStats stats;
@@ -112,10 +111,6 @@ struct CharacterImpl : BodyShapes<Character> {
         for (auto & shape : shapes()) {
             cpShapeSetElasticity(&*shape, 1);
         }
-
-        shape = newCircleShape(0.3, {0, 0})(this, body());
-        cpShapeSetFriction(&*shape, 0.2);
-        cpShapeSetFilter(&*shape, {gr_character, cat_play, cat_play});
 
         stats.mugshot = *char_defs[type].mug;
 
@@ -239,15 +234,9 @@ struct BirdImpl : BodyShapes<Bird> {
     int resilience;
     float speed;
 
-    ShapePtr shape;
-
     BirdImpl(cpSpace * space, BirdType type, vec2 const & pos, float sp)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], {gr_bird, cat_play, cat_play}}
     {
-        shape = newCircleShape(0.3, {0, 0})(this, body());
-        cpShapeSetFriction(&*shape, 0.2);
-        cpShapeSetFilter(&*shape, {gr_bird, cat_play, cat_play});
-
         cpBodySetType(body(), CP_BODY_TYPE_KINEMATIC);
         bird_type = type;
         resilience = int(type);
@@ -358,15 +347,10 @@ struct BombBatImpl : BodyShapes<BombBat> {
 };
 
 struct BombBatCarrotImpl : BodyShapes<BombBatCarrot> {
-    ShapePtr shape;
-
     BombBatCarrotImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), sensor(bomb.bomb), {CP_NO_GROUP, cat_play, cat_play}}
     {
         cpBodySetType(body(), CP_BODY_TYPE_STATIC);
-        shape = newCircleShape(0.1, {0, 0})(this, body());
-        cpShapeSetFilter(&*shape, {CP_NO_GROUP, cat_play, cat_play});
-        cpShapeSetSensor(&*shape, true);
     }
 };
 
