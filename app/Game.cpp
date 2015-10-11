@@ -239,9 +239,15 @@ struct BirdImpl : BodyShapes<Bird> {
     int resilience;
     float speed;
 
+    ShapePtr shape;
+
     BirdImpl(cpSpace * space, BirdType type, vec2 const & pos, float sp)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], {gr_bird, cat_play, cat_play}}
     {
+        shape = newCircleShape(0.3, {0, 0})(this, body());
+        cpShapeSetFriction(&*shape, 0.2);
+        cpShapeSetFilter(&*shape, {gr_bird, cat_play, cat_play});
+
         cpBodySetType(body(), CP_BODY_TYPE_KINEMATIC);
         bird_type = type;
         resilience = int(type);
