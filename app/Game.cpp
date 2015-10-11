@@ -106,8 +106,7 @@ struct CharacterImpl : BodyShapes<Character> {
     CharacterStats stats;
 
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
-    : BodyShapes{space, newBody(1, INFINITY, pos), sensor(*char_defs[type].sprites), {gr_character, cat_play | cat_character, cat_play | cat_character}}
-    {
+    : BodyShapes{space, newBody(1, INFINITY, pos), *char_defs[type].sprites, {gr_character, cat_play | cat_character, cat_play | cat_character}} {
         for (auto & shape : shapes()) {
             cpShapeSetElasticity(&*shape, 1);
         }
@@ -259,15 +258,9 @@ struct BirdImpl : BodyShapes<Bird> {
         if (isFlying()) {
             setAngle(0);
             auto v = unit(velocity());
-            if (fromWhence && v.y > 0) {
-                setState(Bird::State::rear);
-            } else {
-                if (v.x > -0.5 && v.x < 0.5) {
-                    setState(Bird::State::front);
-                } else {
-                    setState(Bird::State::side);
-                }
-            }
+            setState(fromWhence && v.y > 0  ? Bird::State::rear     :
+                     fabsf(v.x) < 0.5       ? Bird::State::front
+                     :                        Bird::State::side);
 
             if (isFlying() && !hasCaptive) {
                 setVelocity(unit(desired_pos - position()) * speed);
