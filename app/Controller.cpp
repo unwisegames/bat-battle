@@ -234,7 +234,7 @@ void Controller::newGame(GameMode mode) {
 bool Controller::onUpdate(float dt) {
     if (!m->paused) {
         if (!m->game->state().game_over) {
-            if (!m->game->update(dt)) {
+            if (!m->game->update(dt, 1/60.0)) {
                 //newGame();
             }
         }
