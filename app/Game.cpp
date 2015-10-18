@@ -309,10 +309,11 @@ struct BombBatImpl : BodyShapes<BombBat> {
     : BodyShapes{space, newBody(1, 1, pos), bomb.bat, {gr_bird, cat_play, cat_play}}
     {
         cpBodySetType(body(), CP_BODY_TYPE_KINEMATIC);
+        setVelocity({0.5, -0.5});
         desired_pos = des_pos;
     }
 
-    void newState(size_t & loop) override {
+    virtual void newState(size_t & loop) override {
         loop = size_t(state());
     }
 
@@ -355,7 +356,7 @@ struct BombImpl : BodyShapes<Bomb> {
     {
     }
 
-    void newState(size_t & loop) override {
+    virtual void newState(size_t & loop) override {
         loop = size_t(state());
     }
 };
