@@ -236,10 +236,11 @@ struct BirdImpl : BodyShapes<Bird> {
     BirdImpl(cpSpace * space, BirdType type, vec2 const & pos, float sp)
     : BodyShapes{space, newBody(1, 1, pos), bats.bats[type], {gr_bird, cat_play, cat_play}}
     {
-        cpBodySetType(body(), CP_BODY_TYPE_KINEMATIC);
+        //cpBodySetType(body(), CP_BODY_TYPE_KINEMATIC);
         bird_type = type;
         resilience = int(type);
         speed = rand<float>(sp - (sp * 0.3), sp + (sp * 0.3));
+        setForce(vec2{0, 10});
     }
 
     void newFrame(bool loopChanged) override {
@@ -255,7 +256,8 @@ struct BirdImpl : BodyShapes<Bird> {
     }
 
     virtual void doUpdate(float) override {
-        if (isFlying()) {
+        setForce(vec2{0, 10});
+        /*if (isFlying()) {
             setAngle(0);
             auto v = unit(velocity());
             setState(fromWhence && v.y > 0  ? Bird::State::rear     :
@@ -268,7 +270,7 @@ struct BirdImpl : BodyShapes<Bird> {
                 // maintain velocity
                 setVelocity(escapeVel * speed);
             }
-        }
+        }*/
     }
 
     virtual bool isFlying() const override {
