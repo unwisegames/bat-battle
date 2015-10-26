@@ -211,7 +211,10 @@ void Controller::newGame(GameMode mode) {
         };
         menu->twitter->clicked += [=]{
             click();
-            social::share(social::Service::twitter, "Claws is awesome!", {"http://apple.co/1GepxO0"});
+            social::share(social::Service::twitter, "Claws is awesome!", {"http://apple.co/1GepxO0"}, {},
+                          spawn_consumer<social::SharingResult>([=](social::SharingResult result) {
+                // Do something with result.
+            }));
         };
     };
 
