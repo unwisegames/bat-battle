@@ -26,7 +26,6 @@ using namespace brac;
 
 struct Controller::Members {
     std::shared_ptr<Game> game;
-    float angle = 0;
     bool newGame = false;
     GameMode mode = m_menu;
     float top = 0;
@@ -243,7 +242,6 @@ bool Controller::onUpdate(float dt) {
             newGame(m->mode);
             return false;
         }
-        m->angle += dt;
     }
     return true;
 }

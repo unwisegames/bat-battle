@@ -256,8 +256,8 @@ struct BirdImpl : BodyShapes<Bird> {
     }
 
     virtual void doUpdate(float) override {
-        setForce(vec2{0, 10});
-        /*if (isFlying()) {
+        setForce(-WORLD_GRAVITY);
+        if (isFlying()) {
             setAngle(0);
             auto v = unit(velocity());
             setState(fromWhence && v.y > 0  ? Bird::State::rear     :
@@ -270,7 +270,7 @@ struct BirdImpl : BodyShapes<Bird> {
                 // maintain velocity
                 setVelocity(escapeVel * speed);
             }
-        }*/
+        }
     }
 
     virtual bool isFlying() const override {
@@ -1129,6 +1129,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                 // arm bomb
                 bjb->bomb->countdown = 10; beep();
                 reader<double> ticker = chan::spawn_quantize(bjb->bomb->update_me(), 1.0);
+                bjb->bomb->ticker_keepalive = {};
                 ticker = chan::spawn_killswitch(ticker, --bjb->bomb->ticker_keepalive); // killable
                 spawn([=, bat = &bat, ticker = ticker]{
                     while (ticker >> nullptr) {

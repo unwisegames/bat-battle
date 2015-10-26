@@ -9,7 +9,6 @@
 #include <bricabrac/Utility/Signal.h>
 #include <bricabrac/Utility/Timer.h>
 
-constexpr float GRAVITY = -30;
 constexpr float LAUNCH_OFFSET = 1;
 const brac::vec2 WORLD_GRAVITY = {0, -10};
 constexpr float ATTACK_LINE_Y = 6;
