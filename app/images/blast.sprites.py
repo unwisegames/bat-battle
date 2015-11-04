@@ -39,5 +39,6 @@ sprites(
                 (char_blast_frame(1, 5),      99),
                 ),
            ],
+    blackbat=floodfill((7, 9), scale=8, origin='center'),
 
 )

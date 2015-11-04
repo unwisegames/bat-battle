@@ -195,10 +195,54 @@ void Controller::newGame(GameMode mode) {
         brag::batskilled = *m->batsKilled;
         brag::accuracy = *m->accuracy;
 
-        auto gameOver = emplaceController<GameOver>(mode, score, *m->bestScore, state.playerStats, state.characterStats);
-        gameOver->back      ->clicked += newGame(m_menu);
-        gameOver->restart   ->clicked += newGame(m->mode);
-        gameOver->cont      ->clicked += [=] { m->game->continueGame(); };
+        auto showGameOverScreen = [=]()
+        {
+            auto gameOver = emplaceController<GameOver>(mode, score, *m->bestScore, state.playerStats, state.characterStats);
+            gameOver->back      ->clicked += newGame(m_menu);
+            gameOver->restart   ->clicked += newGame(m->mode);
+            //gameOver->cont      ->clicked += [=] { m->game->continueGame(); };
+            gameOver->facebook->clicked += [=]{
+                click();
+                social::share(social::Service::facebook, "Bat Battle is awesome!", {"http://apple.co/1GepxO0"}, {},
+                              chan::spawn_sink<social::SharingResult>([=](social::SharingResult result) {
+                    // Do something with result.
+                    switch (result) {
+                        case brac::social::SharingResult::done :
+                            gameOver->pop();
+                            m->game->continueGame();
+                            break;
+                        case brac::social::SharingResult::cancelled :
+                            // obviously this needs to be changed, but to save actually posting every time for testing...
+                            gameOver->pop();
+                            m->game->continueGame();
+                            break;
+                        default:
+                            break;
+                    }
+                }));
+            };
+            gameOver->twitter->clicked += [=]{
+                click();
+                social::share(social::Service::twitter, "Bat Battle is awesome!", {"http://apple.co/1GepxO0"}, {},
+                              chan::spawn_sink<social::SharingResult>([=](social::SharingResult result) {
+                    // Do something with result.
+                    switch (result) {
+                        case brac::social::SharingResult::done :
+                            gameOver->pop();
+                            m->game->continueGame();
+                            break;
+                        case brac::social::SharingResult::cancelled :
+                            gameOver->pop();
+                            m->game->continueGame();
+                            break;
+                        default:
+                            break;
+                    }
+                }));
+            };
+        };
+
+        showGameOverScreen();
     };
 
     m->game->show_menu += [=] {

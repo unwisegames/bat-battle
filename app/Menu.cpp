@@ -1,6 +1,8 @@
 #include "Menu.h"
 #include "atlas.sprites.h"
+#include "atlas2.sprites.h"
 #include "bats.sprites.h"
+#include "blast.sprites.h"
 #include <bricabrac/Game/Bragging.h>
 #include <bricabrac/Utility/UrlOpener.h>
 
@@ -16,7 +18,8 @@ Menu::Menu() {
 bool Menu::onUpdate(float dt) { return true; }
 
 void Menu::onDraw() {
-    SpriteProgram::draw(atlas.title, pmv() * mat4::translate({0, 1.7, 0}) * mat4::scale(1.8));
+    SpriteProgram::draw(blast.blackbat, pmv() * mat4::translate({0, 1.7, 0}) * mat4::scale(1));
+    SpriteProgram::draw(atlas2.title, pmv() * mat4::translate({0, 1.0, 0}) * mat4::scale(0.9));
     //SpriteProgram::draw(atlas2.title, pmv() * mat4::translate({0, 1.7, 0}) * mat4::scale(1));
     //SpriteProgram::draw(bats.wings, pmv() * mat4::translate({0, 0, 0}) * mat4::scale(1));
 

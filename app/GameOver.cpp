@@ -15,7 +15,9 @@ GameOver::GameOver(GameMode m, size_t score, size_t best, PlayerStats ps, std::v
 : score_(score), best_(best), ps_(ps), cs_(cs) {
     back        ->clicked += [=]{ pop(); };
     restart     ->clicked += [=]{ pop(); };
-    cont        ->clicked += [=]{ pop(); };
+    //cont        ->clicked += [=]{ pop(); };
+    facebook    ->clicked += [=]{ pop(); };
+    twitter    ->clicked += [=]{ /*pop();*/ };
 
     //if (passed) {
         awardManOfMatch();
@@ -89,7 +91,22 @@ void GameOver::onDraw() {
     drawValueText(s(ps_.darts > 0 ? int(float(ps_.hits) / float(ps_.darts) * 100) : 0) + "% ACCURACY", {-3, -1.63}, 0.2, -0.15, -1);
     drawValueText(formatted_time_, {-3, -2.2}, 0.2, -0.15, -1);
 
-    drawHeaderText("CONTINUE", {1.65, 1.45}, 0.3, -0.15);
+    //drawHeaderText("CONTINUE THIS GAME?", {1.65, 1.45}, 0.3, -0.15);
+    drawHeaderText("CONTINUE THIS GAME?", {1.65, 1.45}, 0.25, -0.15);
+    SpriteProgram::draw(atlas2.character1, pmv() * mat4::translate({1.25, 0.9, 0})       * mat4::scale(0.8));
+    SpriteProgram::draw(atlas2.character2, pmv() * mat4::translate({0.4, 0.9, 0})       * mat4::scale(0.8));
+    SpriteProgram::draw(atlas2.character3, pmv() * mat4::translate({2.95, 0.9, 0})       * mat4::scale(0.8));
+    SpriteProgram::draw(atlas2.character4, pmv() * mat4::translate({2.1, 0.9, 0})       * mat4::scale(0.8));
+    //SpriteProgram::draw(atlas2.character4, pmv() * mat4::translate({1.65, 0.9, 0})       * mat4::scale(0.8));
+    drawValueText("SHARE BAT BATTLE WITH YOUR", {1.65, 0.2}, 0.2, -0.15);
+    drawValueText("FRIENDS TO UNLEASH", {1.65, -0.2}, 0.2, -0.15);
+    drawValueText("4 MORE CHARACTERS", {1.65, -0.6}, 0.2, -0.15);
+
+
+
+
+
+
     /*SpriteProgram::draw(cs_[mom_].mugshot,  pmv() * mat4::scale(2) * mat4::translate({0.85, 0.15, 0}));
     SpriteProgram::draw(characters.dart,    pmv() * mat4::translate({-0.1, -1.5, 0})    * mat4::scale(0.5));
     SpriteProgram::draw(atlas.bathead,      pmv() * mat4::translate({-0.2, -1.95, 0})   * mat4::scale(0.25));
@@ -103,7 +120,9 @@ void GameOver::onDraw() {
 
     back->draw(pmv());
     restart->draw(pmv());
-    cont->draw(pmv());
+    //cont->draw(pmv());
+    facebook->draw(pmv());
+    twitter->draw(pmv());
 }
 
 void GameOver::onResize(brac::vec2 const & size) {
@@ -111,5 +130,5 @@ void GameOver::onResize(brac::vec2 const & size) {
 }
 
 TouchHandler GameOver::onTouch(vec2 const & worldPos, float radius) {
-    return Button::handleTouch(worldPos, {back, restart, cont});
+    return Button::handleTouch(worldPos, {back, restart, facebook, twitter});
 }

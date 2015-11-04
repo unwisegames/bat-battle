@@ -5,6 +5,7 @@
 #include "UI.h"
 #include "Game.h"
 #include "atlas.sprites.h"
+#include "atlas2.sprites.h"
 
 #include <memory>
 
@@ -14,7 +15,9 @@ public:
 
     std::shared_ptr<Button> back        = makeButton(atlas.back     , {-5, 0}, 1.1);
     std::shared_ptr<Button> restart     = makeButton(atlas.restart  , {5, 0}, 1.1);
-    std::shared_ptr<Button> cont        = makeButton(atlas.play     , {1.7, -0.35}, 0.7);
+    //std::shared_ptr<Button> cont        = makeButton(atlas.play     , {1.7, -0.35}, 0.7);
+    std::shared_ptr<Button> facebook    = makeButton(atlas2.facebook, {1, -1.5}, 0.9);
+    std::shared_ptr<Button> twitter     = makeButton(atlas2.twitter , {2.4, -1.5}, 0.9);
 
 private:
     size_t score_;

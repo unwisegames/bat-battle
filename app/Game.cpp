@@ -102,14 +102,18 @@ struct GraveImpl : BodyShapes<Grave> {
 struct CharacterImpl : BodyShapes<Character> {
     vec2 launchVel_ = {0, 0};
     int type_;
-
+    ShapePtr shape;
     CharacterStats stats;
 
     CharacterImpl(cpSpace * space, int type, vec2 const & pos)
-    : BodyShapes{space, newBody(1, INFINITY, pos), *char_defs[type].sprites, {gr_character, cat_play | cat_character, cat_play | cat_character}} {
+    : BodyShapes{space, newBody(1, INFINITY, pos), sensor(*char_defs[type].sprites), {gr_character, cat_play | cat_character, cat_play | cat_character}} {
         for (auto & shape : shapes()) {
             cpShapeSetElasticity(&*shape, 1);
         }
+
+        shape = newCircleShape(0.3, {0, 0})(this, body());
+        cpShapeSetFriction(&*shape, 0.2);
+        cpShapeSetFilter(&*shape, {gr_character, cat_play, cat_play});
 
         stats.mugshot = *char_defs[type].mug;
 
@@ -265,10 +269,10 @@ struct BirdImpl : BodyShapes<Bird> {
                      :                        Bird::State::side);
 
             if (isFlying() && !hasCaptive) {
-                setVelocity(unit(desired_pos - position()) * speed);
+                setVelocity((unit(desired_pos - position()) * speed));// + -WORLD_GRAVITY);
             } else {
                 // maintain velocity
-                setVelocity(escapeVel * speed);
+                setVelocity((escapeVel * speed));// + -WORLD_GRAVITY);
             }
         }
     }
@@ -310,9 +314,10 @@ struct BombBatImpl : BodyShapes<BombBat> {
     BombBatImpl(cpSpace * space, vec2 const & pos, vec2 const & des_pos)
     : BodyShapes{space, newBody(1, 1, pos), bomb.bat, {gr_bird, cat_play, cat_play}}
     {
-        cpBodySetType(body(), CP_BODY_TYPE_KINEMATIC);
-        setVelocity({0.5, -0.5});
+        //cpBodySetType(body(), CP_BODY_TYPE_KINEMATIC);
+        //setVelocity({0.5, -0.5});
         desired_pos = des_pos;
+        setForce(-WORLD_GRAVITY);
     }
 
     virtual void newState(size_t & loop) override {
@@ -321,11 +326,15 @@ struct BombBatImpl : BodyShapes<BombBat> {
 
     virtual void doUpdate(float) override {
         setAngle(0);
-        auto dv = unit(desired_pos - position()) * 1 - velocity(); // "1" = speed
+        //setForce(-WORLD_GRAVITY);
+        /*auto dv = unit(desired_pos - position()) * 1 - velocity(); // "1" = speed
         float epsilon = 0.01;
         if (length_sq(dv) > epsilon) {
             setForce(F * unit(dv));
-        }
+        }*/
+        auto dv = unit(desired_pos - position()) * 1 - velocity(); // "1" = speed
+        float epsilon = 0.01;
+        setForce(((length_sq(dv) > epsilon) * F * unit(dv)) + -WORLD_GRAVITY);
     }
 
     array<ConstraintPtr, 2> holdBomb(cpBody & b) {
@@ -343,23 +352,42 @@ struct BombBatImpl : BodyShapes<BombBat> {
 };
 
 struct BombBatCarrotImpl : BodyShapes<BombBatCarrot> {
+    ShapePtr shape;
+
     BombBatCarrotImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), sensor(bomb.bomb), {CP_NO_GROUP, cat_play, cat_play}}
     {
-        cpBodySetType(body(), CP_BODY_TYPE_STATIC);
+        //cpBodySetType(body(), CP_BODY_TYPE_STATIC);
+        setForce(-WORLD_GRAVITY);
+
+        shape = newCircleShape(0.1, {0, 0})(this, body());
+        cpShapeSetFilter(&*shape, {CP_NO_GROUP, cat_play, cat_play});
+        cpShapeSetSensor(&*shape, true);
+    }
+
+    virtual void doUpdate(float) override {
+        setForce(-WORLD_GRAVITY);
     }
 };
 
 struct BombImpl : BodyShapes<Bomb> {
     writer<> ticker_keepalive;
+    bool offsetGravity = true;
 
     BombImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), bomb.bomb, {gr_bird, cat_play, cat_play}}
     {
+        setForce(-WORLD_GRAVITY);
     }
 
     virtual void newState(size_t & loop) override {
         loop = size_t(state());
+    }
+
+    virtual void doUpdate(float) override {
+        if (offsetGravity) {
+            setForce(-WORLD_GRAVITY);
+        }
     }
 };
 
@@ -367,10 +395,15 @@ struct BlastImpl : BodyShapes<Blast> {
     BlastImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), sensor(blast.blast), {CP_NO_GROUP, cat_play, cat_play}}
     {
+        setForce(-WORLD_GRAVITY);
     }
 
     void newState(size_t & loop) override {
         loop = size_t(state());
+    }
+
+    virtual void doUpdate(float) override {
+        setForce(-WORLD_GRAVITY);
     }
 };
 
@@ -378,6 +411,11 @@ struct CharacterExplosionImpl : BodyShapes<CharacterExplosion> {
     CharacterExplosionImpl(cpSpace * space, vec2 const & pos)
     : BodyShapes{space, newBody(1, 1, pos), sensor(blast.characterblast), {CP_NO_GROUP, cat_play, cat_play}}
     {
+        setForce(-WORLD_GRAVITY);
+    }
+
+    virtual void doUpdate(float) override {
+        setForce(-WORLD_GRAVITY);
     }
 };
 
@@ -698,9 +736,9 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                 if (sleep(0.5)) {
                     tension_stop();
                     lose();
-                    if (sleep(2)) {
+                    //if (sleep(2)) {
                         gameOver();
-                    }
+                    //}
                 }
             });
         }
@@ -948,6 +986,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         createCharacters();
 
         m->update_me(spawn_after(6, [=]{
+            createBombBat();
             createCharacterRescueOpportunity();
         }));
 
@@ -1016,9 +1055,11 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                     if (sleep(0.5)) {
                         tension_stop();
                         lose();
-                        if (sleep(2)) { // <= 0) {
+                        //if (sleep(2)) { // <= 0) {
+                            // NOT GETTING IN HERE AFTER CONTINUATION
+                        //m->update_me(spawn_after(2, [&]{
                             gameOver();
-                        }
+                        //}));
                     }
                 });
                 for (auto & bat : m->actors<BirdImpl>()) {
@@ -1138,7 +1179,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                         } else {
                             m->bbcr >> removeIf([&](auto && bbcr) { return bbcr.bat == bat; });
                             bjb->bat->desired_pos = vec2{bjb->bat->position().x, 20};
-                            bjb->bomb->setForce({0, 0}); // allow application of gravity
+                            bjb->bomb->offsetGravity = false; // allow application of gravity
                             m->bjb.erase(*bjb);
                             bombwhistle_start();
                             return;
@@ -1174,7 +1215,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                     bjb.bomb->ticker_keepalive = {};
                     bjb.bomb->countdown = 0;
                     bjb.bomb->setVelocity({0, 0});
-                    bjb.bomb->setForce({0, 0}); // allow application of gravity
+                    bjb.bomb->offsetGravity = false; // allow application of gravity
                     m->bjb.erase(bjb);
                     bombwhistle_start();
 
@@ -1486,7 +1527,7 @@ void Game::gameOver() {
 
 void Game::continueGame() {
     m->game_over = false;
-    m->watch.start();
+    //m->watch.start();
 
     auto newCharacter = [=](int persona, vec2 pos) {
         auto & c = m->emplace<CharacterImpl>(persona, pos);

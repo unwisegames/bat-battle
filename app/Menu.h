@@ -14,9 +14,9 @@ public:
     bool newGame = false;
     GameMode mode = m_menu;
 
-    std::shared_ptr<Button> play        = makeButton(atlas.play,        { 0, -1.5 });
-    std::shared_ptr<Button> gamecenter  = makeButton(atlas2.gamecenter, { -2.5, -1.5 });
-    std::shared_ptr<Button> twitter     = makeButton(atlas2.twitter,    { 2.5, -1.5 });
+    std::shared_ptr<Button> play        = makeButton(atlas.play,        { 0,    -1.4 });
+    std::shared_ptr<Button> gamecenter  = makeButton(atlas2.gamecenter, { -2.5, -1.4 });
+    std::shared_ptr<Button> twitter     = makeButton(atlas2.twitter,    { 2.5,  -1.4 });
 
     Menu();
 
