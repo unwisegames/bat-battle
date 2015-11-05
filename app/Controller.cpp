@@ -213,8 +213,8 @@ void Controller::newGame(GameMode mode) {
                             break;
                         case brac::social::SharingResult::cancelled :
                             // obviously this needs to be changed, but to save actually posting every time for testing...
-                            gameOver->pop();
-                            m->game->continueGame();
+                            //gameOver->pop();
+                            //m->game->continueGame();
                             break;
                         default:
                             break;

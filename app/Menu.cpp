@@ -19,7 +19,7 @@ bool Menu::onUpdate(float dt) { return true; }
 
 void Menu::onDraw() {
     SpriteProgram::draw(blast.blackbat, pmv() * mat4::translate({0, 1.7, 0}) * mat4::scale(1));
-    SpriteProgram::draw(atlas2.title, pmv() * mat4::translate({0, 1.0, 0}) * mat4::scale(0.9));
+    SpriteProgram::draw(atlas2.title, pmv() * mat4::translate({0, 1.2, 0}) * mat4::scale(0.9));
     //SpriteProgram::draw(atlas2.title, pmv() * mat4::translate({0, 1.7, 0}) * mat4::scale(1));
     //SpriteProgram::draw(bats.wings, pmv() * mat4::translate({0, 0, 0}) * mat4::scale(1));
 

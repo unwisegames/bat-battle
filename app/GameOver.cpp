@@ -16,7 +16,7 @@ GameOver::GameOver(GameMode m, size_t score, size_t best, PlayerStats ps, std::v
     back        ->clicked += [=]{ pop(); };
     restart     ->clicked += [=]{ pop(); };
     //cont        ->clicked += [=]{ pop(); };
-    facebook    ->clicked += [=]{ pop(); };
+    facebook    ->clicked += [=]{ /*pop();*/ };
     twitter    ->clicked += [=]{ /*pop();*/ };
 
     //if (passed) {

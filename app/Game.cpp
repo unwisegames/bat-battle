@@ -1070,19 +1070,21 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                     }
                 }
             } else {
-                // send other birds after new target
-                from(m->targets) >> for_each([&](auto && targets) {
-                    if (targets.c == &character && targets.b != &bird && targets.b->isFlying()) {
-                        if (targets.b->position().y > ATTACK_LINE_Y) {
-                            newTarget(*targets.b);
-                        } else {
-                            // flying too low to target new character
-                            m->targets >> removeIf([&](auto && target) { return target.b == targets.b; });
-                            vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
-                            targets.b->setDesiredPos(atp);
+                try {
+                    // send other birds after new target
+                    from(m->targets) >> for_each([&](auto && targets) {
+                        if (targets.c == &character && targets.b != &bird && targets.b->isFlying()) {
+                            if (targets.b->position().y > ATTACK_LINE_Y) {
+                                newTarget(*targets.b);
+                            } else {
+                                // flying too low to target new character
+                                m->targets >> removeIf([&](auto && target) { return target.b == targets.b; });
+                                vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
+                                targets.b->setDesiredPos(atp);
+                            }
                         }
-                    }
-                });
+                    });
+                } catch(int e) {}
             }
         }
         return true;
