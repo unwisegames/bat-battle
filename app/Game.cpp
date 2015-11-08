@@ -685,7 +685,13 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         if (m->rem_chars == 0) {
             m->game_over = true;
 
-            spawn([=, sleep = sleeper(m->update_me())]{
+            m->update_me(spawn_after(0.5, [&]{
+                tension_stop();
+                lose();
+            }));
+            m->update_me(spawn_after(3.0, [&]{ gameOver(); }));
+
+            /*spawn([=, sleep = sleeper(m->update_me())]{
                 if (sleep(0.5)) {
                     tension_stop();
                     lose();
@@ -693,7 +699,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                         gameOver();
                     //}
                 }
-            });
+            });*/
         }
     };
 
@@ -1013,7 +1019,13 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             }
 
             if (!m->anybodyLeft()) {
-                spawn([=, sleep = sleeper(m->update_me())]{
+                m->update_me(spawn_after(0.5, [&]{
+                    tension_stop();
+                    lose();
+                }));
+                m->update_me(spawn_after(3.0, [&]{ gameOver(); }));
+
+                /*spawn([=, sleep = sleeper(m->update_me())]{
                     if (sleep(0.5)) {
                         tension_stop();
                         lose();
@@ -1023,7 +1035,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                             gameOver();
                         //}));
                     }
-                });
+                });*/
                 for (auto & bat : m->actors<BirdImpl>()) {
                     if (!bat.hasCaptive) {
                         m->targets >> removeIf([&](auto && target) { return target.b == &bat; });
@@ -1052,8 +1064,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         return true;
     });
 
-    m->onCollision([=](DartImpl &, BombImpl &, cpArbiter * arb) {
-        return !m->game_over;
+    m->onCollision([=](DartImpl & dart, BombImpl &, cpArbiter * arb) {
+        return !m->game_over && dart.active;
     });
 
     m->onPostSolve([=](DartImpl & dart, BombImpl & bomb, cpArbiter * arb) {
@@ -1351,6 +1363,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
                 case Character::State::rescued:
                     character.reload();
                     targetCharacter(character);
+                    stopyays();
+                    tension_start();
                     break;
                 case Character::State::celebrating:
                     yay();
@@ -1507,7 +1521,7 @@ void Game::gameOver() {
     }
 
     tension_stop();
-
+    //failed();
     ended();
     //end();
 }
@@ -1533,12 +1547,16 @@ void Game::continueGame() {
     newCharacter(4, {7, 0});
     m->popup("GAME ON", vec2{0, 7}, 3, 1);
 
-    m->update_me(spawn_after(0.1, [&]{ yay7(); }));
-    m->update_me(spawn_after(0.2, [&]{ comeon(); }));
-    m->update_me(spawn_after(0.3, [&]{ aha(); }));
+    m->update_me(spawn_after(0.1, [&]{ yay2(); }));
+    m->update_me(spawn_after(0.2, [&]{ yay6(); }));
+    m->update_me(spawn_after(0.3, [&]{ yay4(); }));
+    m->update_me(spawn_after(0.4, [&]{ yay5(); }));
+    m->update_me(spawn_after(0.2, [&]{ yay1(); }));
+    m->update_me(spawn_after(0.7, [&]{ yay3(); }));
+    m->update_me(spawn_after(0.9, [&]{ yay7(); }));
     m->update_me(spawn_after(0.4, [&]{ yay8(); }));
 
-    tension_start();
+    //tension_start();
 }
 
 void Game::archiveCharacterStats(CharacterStats s) {

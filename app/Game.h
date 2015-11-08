@@ -199,10 +199,18 @@ public:
     brac::Signal<void()> reloading;
     brac::Signal<void()> screech;
     brac::Signal<void()> screech2;
+    brac::Signal<void()> yay1;
+    brac::Signal<void()> yay2;
+    brac::Signal<void()> yay3;
+    brac::Signal<void()> yay4;
+    brac::Signal<void()> yay5;
+    brac::Signal<void()> yay6;
     brac::Signal<void()> yay7;
     brac::Signal<void()> yay8;
+    brac::Signal<void()> yay9;
     brac::Signal<void()> aha;
     brac::Signal<void()> comeon;
+    brac::Signal<void()> stopyays;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits

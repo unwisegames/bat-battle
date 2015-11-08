@@ -123,13 +123,26 @@ void Controller::newGame(GameMode mode) {
     m->game->reloading  += [=] { m->audio.reloading .play(); };
     m->game->screech    += [=] { m->audio.screech   .play(); };
     m->game->screech2   += [=] { m->audio.screech2  .play(); };
+    m->game->yay1       += [=] { m->audio.yay1      .play(); };
+    m->game->yay2       += [=] { m->audio.yay2      .play(); };
+    m->game->yay3       += [=] { m->audio.yay3      .play(); };
+    m->game->yay4       += [=] { m->audio.yay4      .play(); };
+    m->game->yay5       += [=] { m->audio.yay5      .play(); };
+    m->game->yay6       += [=] { m->audio.yay6      .play(); };
     m->game->yay7       += [=] { m->audio.yay7      .play(); };
     m->game->yay8       += [=] { m->audio.yay8      .play(); };
-    m->game->aha        += [=] { m->audio.aha       .play(); };
+    m->game->yay9       += [=] { m->audio.yay9      .play(); };
     m->game->comeon     += [=] { m->audio.comeon    .play(); };
 
     m->game->bombwhistle_start += [=] { m->audio.bombwhistle.play(); };
     m->game->bombwhistle_stop  += [=] { m->audio.bombwhistle.stop(); };
+
+    m->game->stopyays += [=]{
+        m->audio.yay2.stop();
+        m->audio.yay4.stop();
+        m->audio.yay5.stop();
+        m->audio.yay6.stop();
+    };
 
     m->game->yay += [=] {
         auto p = randomChoice(yays);
@@ -142,8 +155,10 @@ void Controller::newGame(GameMode mode) {
     };
 
     m->game->tension_start += [=] {
-        m->audio.tension->setLoopCount(-1);
-        m->audio.tension->play();
+        if (!m->audio.tension->isPlaying()) {
+            m->audio.tension->setLoopCount(-1);
+            m->audio.tension->play();
+        }
     };
 
     m->game->tension_stop += [=] {
