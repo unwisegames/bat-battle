@@ -77,6 +77,7 @@ void Controller::newGame(GameMode mode) {
 
     m->audio.ambience->setLoopCount(-1);
     m->audio.theme->setLoopCount(-1);
+    m->audio.theme->setVolume(1);
     mode == m_play ? m->audio.ambience->play() : m->audio.ambience->stop();
     mode == m_menu ? m->audio.theme->play() : m->audio.theme->stop();
     m->audio.tension->stop();
