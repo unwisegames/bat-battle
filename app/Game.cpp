@@ -36,7 +36,7 @@ enum Group : cpGroup { gr_bird = 1, gr_character };
 
 enum Category : cpBitmask { cat_all = 1<<0, cat_character = 1<<1, cat_halo = 1<<2, cat_play = 1<<3 };
 
-enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_attack, ct_startle, ct_barrier };
+enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_attack, ct_startle, ct_barrier, ct_wall };
 
 enum BirdType { bt_grey = 0, bt_yellow = 1 };
 
@@ -113,7 +113,7 @@ struct CharacterImpl : BodyShapes<Character> {
 
         shape = newCircleShape(0.3, {0, 0})(this, body());
         cpShapeSetFriction(&*shape, 0.2);
-        cpShapeSetFilter(&*shape, {gr_character, cat_play, cat_play});
+        cpShapeSetFilter(&*shape, {gr_character, cat_play | cat_character, cat_play | cat_character});
 
         stats.mugshot = *char_defs[type].mug;
 
@@ -251,6 +251,7 @@ struct BirdImpl : BodyShapes<Bird> {
         if (!loopChanged && frame() == 0) {
             if (isFlying() && bird_type == bt_yellow && resilience == 0) {
                 setVelocity({0, 0});
+                cpBodyApplyImpulseAtLocalPoint(body(), to_cpVect({rand<float>(-0.5, 0.5), rand<float>(-0.5, 0.5)}), to_cpVect({0, 0}));
             }
         }
     }
@@ -269,7 +270,11 @@ struct BirdImpl : BodyShapes<Bird> {
                      :                        Bird::State::side);
 
             if (isFlying() && !hasCaptive) {
-                setVelocity((unit(desired_pos - position()) * speed));// + -WORLD_GRAVITY);
+//                setVelocity((unit(desired_pos - position()) * speed));// + -WORLD_GRAVITY);
+//                setForce((unit(desired_pos - position()) * speed) + -WORLD_GRAVITY);
+                auto dv = unit(desired_pos - position()) * speed - velocity();
+                float epsilon = 0.01;
+                setForce(((length_sq(dv) > epsilon) * F * unit(dv)) + -WORLD_GRAVITY);
             } else {
                 // maintain velocity
                 setVelocity((escapeVel * speed));// + -WORLD_GRAVITY);
@@ -518,6 +523,8 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     ShapePtr rbarrier{segmentShape({9, 2}, {9, 2.5})};
     ShapePtr lslope{segmentShape({-9, 2.5}, {-10, 4})};
     ShapePtr rslope{segmentShape({9, 2.5}, {10, 4})};
+    ShapePtr leftWall;
+    ShapePtr rightWall;
     size_t created_grey_bats = 0;
     size_t created_yellow_bats = 0;
     writer<> ticker_keepalive;
@@ -598,60 +605,6 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         }));
         alert();
     };
-
-    //auto generateLevel = [=]() {
-        /*m->params.grey_bats      =  lp[m->level - 1].grey_bats;
-        m->params.yellow_bats    =  lp[m->level - 1].yellow_bats;
-        m->params.characters     =  lp[m->level - 1].characters;
-        m->params.bird_speed     =  lp[m->level - 1].bird_speed;
-        m->params.bird_interval  =  lp[m->level - 1].bird_interval;
-        m->params.max_simul_bats =  lp[m->level - 1].max_simul_bats;
-
-        m->playerStats.characters   = m->params.characters;
-        m->playerStats.birds        = m->params.grey_bats + m->params.yellow_bats;
-        m->rem_grey_bats            = m->params.grey_bats;
-        m->rem_yellow_bats          = m->params.yellow_bats;
-        m->rem_chars                = m->params.characters;*/
-
-        // Temporarily leaving in algorithm below for posterity
-        // ********************************************************
-        /*float   GREY_BAT_WORTH      = 0.3;
-        float   YELLOW_BAT_WORTH    = 0.5;
-        float   CHARACTER_DEC       = 0.1;
-        float   BAT_SPEED_INC       = 0.05;
-        int     MIN_CHARACTERS      = 2;
-        int     MAX_CHARACTERS      = 8;
-        float   MAX_BAT_SPEED       = 3;
-        float   MIN_BAT_SPEED       = 1;
-
-        int min_gry = 1;
-        int max_gry = ceil((m->level + 1) / GREY_BAT_WORTH);
-        int min_ylw = 0;
-        int max_ylw = level < LEVEL_YELLOW_BATS_INTRODUCED ? 0 : ceil((m->level + 1) / YELLOW_BAT_WORTH);
-
-        float min_diff = level;
-        float max_diff = level + 1;
-
-        float difficulty = 0;
-        do {
-            m->params.grey_bats     = rand<int>(min_gry, max_gry);
-            m->params.yellow_bats   = rand<int>(min_ylw, max_ylw);
-            m->params.characters    = clamp(rand<int>(floor(MAX_CHARACTERS - (level * CHARACTER_DEC)), ceil(MAX_CHARACTERS - (level * CHARACTER_DEC))), MIN_CHARACTERS, MAX_CHARACTERS);
-            m->params.bird_speed    = clamp(1 + level * BAT_SPEED_INC, MIN_BAT_SPEED, MAX_BAT_SPEED);
-
-            difficulty = float(m->params.grey_bats)     * GREY_BAT_WORTH
-                       + float(m->params.yellow_bats)   * YELLOW_BAT_WORTH;
-
-            if (difficulty < min_diff) {
-                min_gry = m->params.grey_bats;
-                min_ylw = m->params.yellow_bats;
-            } else if (difficulty > max_diff) {
-                max_gry = m->params.grey_bats;
-                max_ylw = m->params.yellow_bats;
-            }
-        } while (difficulty < min_diff || difficulty > max_diff);*/
-        // ********************************************************
-    //};
 
     auto newTarget = [=](BirdImpl & b) {
         m->targets >> removeIf([&](auto && target) { return target.b == &b; });
@@ -892,6 +845,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         m->abyssWalls[1] = seg({ 10, top    }, { 10, -10    }, ct_abyss);  // right
         m->abyssWalls[2] = seg({-10, top    }, { 10, top    }, ct_abyss);  // top
         m->startleLine   = seg({-10, top - 1}, { 10, top - 1}, ct_startle);
+        m->leftWall = m->segmentShape({-10, top}, {-10, -10});
+        m->rightWall = m->segmentShape({10, top}, {10, -10});
         m->back_btn->setY(top - 0.8);
         m->pause_btn->setY(top - 0.78);
 
@@ -905,6 +860,13 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         cpShapeSetCollisionType (&*m->rslope, ct_barrier);
         cpShapeSetCollisionType (&*m->lbarrier, ct_barrier);
         cpShapeSetCollisionType (&*m->rbarrier, ct_barrier);
+
+        cpShapeSetCollisionType (&*m->leftWall, ct_wall);
+        cpShapeSetCollisionType (&*m->rightWall, ct_wall);
+        cpShapeSetFilter(&*m->leftWall, {CP_NO_GROUP, cat_character, cat_character});
+        cpShapeSetFilter(&*m->rightWall, {CP_NO_GROUP, cat_character, cat_character});
+        cpShapeSetFriction(&*m->leftWall, 0.5);
+        cpShapeSetFriction(&*m->rightWall, 0.5);
 
         auto createCharacter = [=](vec2 const v, int i) {
             auto & c = m->emplace<CharacterImpl>(i, v);
@@ -972,7 +934,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
             c.kidnap();
             m->cjb.insert(CharacterJointBird{&c, b.grabCharacter(*c.body()), &b});
 
-            b.escapeVel = vec2{static_cast<float>(1.5 * dir), 0.55}; // positive y vel is magic number to offset character weight
+            b.escapeVel = vec2{static_cast<float>(1.5 * dir), 0};
 
             for (auto & shape : c.shapes()) {
                 auto filter = cpShapeGetFilter(&*shape);
@@ -1200,6 +1162,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         if (dart.active) {
             if (cpArbiterIsFirstContact(arb)) {
                 ++m->playerStats.hits;
+                //screech2();
 
                 // increment character stats
                 auto shooter = (from(m->actors<CharacterImpl>()) >> mutable_ref()
@@ -1458,6 +1421,28 @@ Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Membe
         return false;
     });
 
+    m->onCollision([=](CharacterImpl & c, NoActor<ct_wall> &) {
+        // prevent rescued character from flying off the screen
+        return (!c.isDead() &&
+                !(from(m->cjb) >> any([&](auto && cjb) { return cjb.c == &c; })));
+    });
+
+    m->onCollision([=](CharacterImpl &, BombBatImpl &) {
+        return false;
+    });
+
+    m->onCollision([=](CharacterImpl &, BombImpl &) {
+        return false;
+    });
+
+    m->onCollision([=](BirdImpl &, BombBatImpl &) {
+        return false;
+    });
+
+    m->onCollision([=](BirdImpl &, BombImpl &) {
+        return false;
+    });
+
     m->onCollision([=](PersonalSpaceImpl & ps1, PersonalSpaceImpl & ps2, cpArbiter *) {
         auto whosePersonalSpace = [=](PersonalSpaceImpl & ps) {
             auto matching1 = from(m->cps) >> ref() >> where([&](auto && cps) { return cps.get().ps == &ps; });
@@ -1546,7 +1531,12 @@ void Game::continueGame() {
     newCharacter(2, {-2.5, 0});
     newCharacter(3, {2.5, 0});
     newCharacter(4, {7, 0});
-    m->popup("GAME ON", vec2{0, 9}, 3, 1);
+    m->popup("GAME ON", vec2{0, 7}, 3, 1);
+
+    m->update_me(spawn_after(0.1, [&]{ yay7(); }));
+    m->update_me(spawn_after(0.2, [&]{ comeon(); }));
+    m->update_me(spawn_after(0.3, [&]{ aha(); }));
+    m->update_me(spawn_after(0.4, [&]{ yay8(); }));
 
     tension_start();
 }

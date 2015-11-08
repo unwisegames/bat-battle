@@ -40,5 +40,7 @@ sprites(
                 ),
            ],
     blackbat=floodfill((7, 9), scale=8, origin='center'),
+    blackbat2=floodfill((6, 6), scale=10, origin='center'),
+    blackbat3=floodfill((10, 6), scale=10, origin='center'),
 
 )

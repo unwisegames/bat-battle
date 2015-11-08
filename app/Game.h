@@ -156,7 +156,7 @@ public:
         GameMode mode;
         std::shared_ptr<Button> back_btn {std::make_shared<Button>(atlas.back      , brac::vec2{-9.2, 10}, 1)};
         std::shared_ptr<Button> pause_btn{std::make_shared<Button>(characters.pause, brac::vec2{-7.9, 10}, 1)};
-        std::shared_ptr<Button> play_btn {std::make_shared<Button>(atlas.play      , brac::vec2{ 0, 7 }, 1)};
+        std::shared_ptr<Button> play_btn {std::make_shared<Button>(atlas.play      , brac::vec2{ 0, 5 }, 1)};
         //size_t rem_grey_bats;
         //size_t rem_yellow_bats;
         size_t grey_bats_killed = 0;
@@ -197,6 +197,12 @@ public:
     brac::Signal<void()> bombwhistle_start;
     brac::Signal<void()> bombwhistle_stop;
     brac::Signal<void()> reloading;
+    brac::Signal<void()> screech;
+    brac::Signal<void()> screech2;
+    brac::Signal<void()> yay7;
+    brac::Signal<void()> yay8;
+    brac::Signal<void()> aha;
+    brac::Signal<void()> comeon;
 
     // Achievement-related events
     brac::Signal<void(size_t n)> n_for_n; // n hoops from n hits

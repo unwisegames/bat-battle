@@ -76,7 +76,9 @@ void Controller::newGame(GameMode mode) {
     auto const & state = m->game->state();
 
     m->audio.ambience->setLoopCount(-1);
+    m->audio.theme->setLoopCount(-1);
     mode == m_play ? m->audio.ambience->play() : m->audio.ambience->stop();
+    mode == m_menu ? m->audio.theme->play() : m->audio.theme->stop();
     m->audio.tension->stop();
     m->audio.fail->stop();
 
@@ -119,6 +121,12 @@ void Controller::newGame(GameMode mode) {
     m->game->charblast  += [=] { m->audio.charblast .play(); };
     m->game->boom       += [=] { m->audio.boom      .play(); };
     m->game->reloading  += [=] { m->audio.reloading .play(); };
+    m->game->screech    += [=] { m->audio.screech   .play(); };
+    m->game->screech2   += [=] { m->audio.screech2  .play(); };
+    m->game->yay7       += [=] { m->audio.yay7      .play(); };
+    m->game->yay8       += [=] { m->audio.yay8      .play(); };
+    m->game->aha        += [=] { m->audio.aha       .play(); };
+    m->game->comeon     += [=] { m->audio.comeon    .play(); };
 
     m->game->bombwhistle_start += [=] { m->audio.bombwhistle.play(); };
     m->game->bombwhistle_stop  += [=] { m->audio.bombwhistle.stop(); };
@@ -163,6 +171,7 @@ void Controller::newGame(GameMode mode) {
         auto const & state = m->game->state();
 
         m->audio.ambience->stop();
+        m->audio.theme->stop();
 
         stopYays();
 
@@ -270,10 +279,12 @@ void Controller::newGame(GameMode mode) {
     };
 
     state.pause_btn->clicked += [=] {
+        click();
         m->paused = !m->paused;
     };
 
     state.play_btn->clicked += [=] {
+        click();
         m->paused = false;
     };
 }
@@ -401,7 +412,7 @@ void Controller::onDraw() {
 
         if (m->paused) {
             SpriteProgram::draw(atlas.fade, pmv());
-            SpriteProgram::drawText("PAUSED", font.glyphs, 0, pmv() * mat4::translate({0, 9, 0}), -0.1);
+            SpriteProgram::drawText("PAUSED", font.glyphs, 0, pmv() * mat4::translate({0, 7, 0}), -0.1);
             state.play_btn->draw(pmv());
         }
     }
