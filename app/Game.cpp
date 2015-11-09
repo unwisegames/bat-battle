@@ -38,7 +38,7 @@ enum Category : cpBitmask { cat_all = 1<<0, cat_character = 1<<1, cat_halo = 1<<
 
 enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_attack, ct_startle, ct_barrier, ct_wall };
 
-enum BirdType { bt_grey = 0, bt_yellow = 1 };
+enum BirdType { bt_grey, bt_yellow, bt_bomb };
 
 using CharacterSprites = SpriteLoopDef const[23];
 using CharacterMugshot = SpriteDef const;
@@ -527,7 +527,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     ShapePtr rightWall;
     size_t created_grey_bats = 0;
     size_t created_yellow_bats = 0;
-    writer<> ticker_keepalive;
+    channel<> ticker_keepalive;
     Relation<CharacterJointBird>        cjb;
     Relation<BirdTargetCharacter>       targets;
     Relation<CharacterShotDart>         csd;
@@ -895,7 +895,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
             for (auto & c : m->actors<CharacterImpl>()) c.initState();
         };
 
-        auto createBird = [=](BirdType type){
+        auto createBird = [=](BirdType type) {
             auto & b = m->emplace<BirdImpl>(type, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)}, BIRD_SPEED);
             newTarget(b);
             if (type == bt_grey) ++m->created_grey_bats;
@@ -959,21 +959,30 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
         }));
 
         // create birds
-        auto createBirds = [=] {
-            m->ticker_keepalive = {};
-            spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker_keepalive)), interval = BIRD_INTERVAL]{
-                while (sleep(interval)) {
-                    m->update_me(spawn_after(rand<double>(0, 1), [&]{
-                        for (auto i = rand<int>(1, MAX_SIMUL_BATS); i--;) {
-                            if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
-                                auto t = rand<float>(0, 1);
-                                if (t >= 0 && t <= GREY_BAT_RATIO) {
-                                    createBird(bt_grey);
-                                } else if (t > GREY_BAT_RATIO && t <= GREY_BAT_RATIO + YELLOW_BAT_RATIO) {
-                                    createBird(bt_yellow);
-                                } else {
-                                    createBombBat();
-                                }
+        auto createBirds = [=](BirdType bird_type, double arrival_rate) {
+            auto expSleep = [=] {
+                auto sleep = sleeper(chan::spawn_killswitch(m->update_me(), -m->ticker_keepalive));
+
+                std::random_device rd;
+                std::mt19937 gen{rd()};
+
+                const double log_scale = ARRIVAL_RATE_GROWTH_FACTOR * arrival_rate / log(2);
+
+                return [=](double t) mutable {
+                    double λ = log_scale * log(t + 2);
+                    double dt = std::exponential_distribution<>{λ}(gen);
+                    return sleep(dt) ? dt : 0;
+                };
+            }();
+
+            spawn([=]() mutable {
+                for (double t = 0; double dt = expSleep(t); t += dt) {
+                    m->update_me(spawn_after(rand<double>(0, 1), [&] {
+                        if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
+                            if (bird_type == bt_bomb) {
+                                createBombBat();
+                            } else {
+                                createBird(bird_type);
                             }
                         }
                     }));
@@ -981,7 +990,9 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
             });
         };
 
-        createBirds();
+        createBirds(bt_grey, GREY_BAT_INITIAL_ARRIVAL_RATE);
+        createBirds(bt_yellow, YELLOW_BAT_INITIAL_ARRIVAL_RATE);
+        createBirds(bt_bomb, BOMB_BAT_INITIAL_ARRIVAL_RATE);
 
         // TEMPORARY: hard-coded creation of bomb bat
         /*m->update_me(spawn_after(4, [=]{

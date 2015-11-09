@@ -20,9 +20,13 @@ constexpr float BIRD_INTERVAL = 3.5;
 constexpr float BIRD_SPEED = 1;
 constexpr float MAX_SIMUL_BATS = 2;
 // sum of following 3 constants should always = 1
-constexpr float GREY_BAT_RATIO = 0.7;
-constexpr float YELLOW_BAT_RATIO = 0.25;
-constexpr float BOMB_BAT_RATIO = 0.05;
+constexpr float GREY_BAT_INITIAL_ARRIVAL_RATE = 1/7.0;
+constexpr float YELLOW_BAT_INITIAL_ARRIVAL_RATE = 1/20.0;
+constexpr float BOMB_BAT_INITIAL_ARRIVAL_RATE = 1/100.0;
+
+// Approximately how much the rate increases (relative
+// to its original value) for each doubling in time.
+constexpr float ARRIVAL_RATE_GROWTH_FACTOR = 0.3;
 
 // Scoring
 constexpr int   SCORE_DART_FIRED = 20;
