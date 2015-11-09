@@ -71,7 +71,7 @@ Controller::~Controller() { }
 
 void Controller::newGame(GameMode mode) {
     m->newGame = false;
-    m->game = std::make_shared<Game>(spaceTime(), mode, m->top);
+    m->game = std::make_shared<Game>(spaceTime(), mode, m->top, timer());
 
     auto const & state = m->game->state();
 

@@ -535,10 +535,10 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     Relation<BatJointBomb>              bjb;
     Relation<BombBatCarrotRel>          bbcr;
     Relation<CharacterDetonatedBomb>    cdb;
-    brac::Stopwatch watch{false};
+    brac::Stopwatch watch;
     std::vector<int> deadChars;
 
-    Members(SpaceTime & st) : Impl{st} { }
+    Members(SpaceTime & st, std::shared_ptr<TimerImpl> timer) : Impl{st}, watch{timer, false} { }
 
     bool isKidnappable(CharacterImpl const & c) {
         return (c.state() != Character::State::rescued && !c.isDead() &&
@@ -590,7 +590,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     }
 };
 
-Game::Game(SpaceTime & st, GameMode mode, float top) : GameBase{st}, m{new Members{st}} {
+Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> timer) : GameBase{st}, m{new Members{st, timer}} {
     m->mode = mode;
 
     auto registerTextAlert = [=](std::string s, vec2 pos, float duration, float scale) {
