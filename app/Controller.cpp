@@ -42,6 +42,7 @@ struct Controller::Members {
     Persistent<int> dartsFired{"dartsFired"};
     Persistent<int> bestScore{"bestScore"};
     Persistent<int> batsKilled{"batsKilled"};
+    Persistent<int> mostBatsKilled{"mostBatsKilled"};
     Persistent<float> accuracy{"accuracy"};
     Persistent<int> hits{"hits"};
 };
@@ -191,10 +192,6 @@ void Controller::newGame(GameMode mode) {
 
         stopYays();
 
-        /*if (state.level_passed && state.level > *m->highestCompletedLevel) {
-            brag::highlevel = state.level;
-        }*/
-
         size_t score = state.score;
         if (score > 0) {
             if (score > *m->bestScore) {
@@ -202,14 +199,13 @@ void Controller::newGame(GameMode mode) {
             }
             m->totalPoints = *m->totalPoints + static_cast<int>(score);
 
-            /*if (score >= 25) {
-                brag::score25(100, []{});
-                if (score >= 100) {
-                }
-            }*/
-            
             size_t tp = *m->totalPoints;
             brag::totalpoints = tp;
+
+            if (state.playerStats.kills > *m->mostBatsKilled) {
+                m->mostBatsKilled = state.playerStats.kills;
+            }
+
         }
 
         m->dartsFired = *m->dartsFired + state.playerStats.darts;
@@ -218,7 +214,9 @@ void Controller::newGame(GameMode mode) {
         m->accuracy = (float(*m->hits) / float(*m->dartsFired)) * 100;
         brag::dartsfired = *m->dartsFired;
         brag::batskilled = *m->batsKilled;
-        brag::accuracy = *m->accuracy;
+        brag::highpoints = *m->bestScore;
+        brag::hibatskilled = *m->mostBatsKilled;
+
 
         auto showGameOverScreen = [=]()
         {
