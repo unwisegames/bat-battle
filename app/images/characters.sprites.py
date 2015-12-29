@@ -18,4 +18,5 @@ sprites(
         floodfill((11, 14), scale=8, origin='center'),
         floodfill((14, 14), scale=8, origin='center')
     ],
+    arrow=floodfill((4, 7), scale=8, origin='center')
 )

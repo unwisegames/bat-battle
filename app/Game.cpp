@@ -177,7 +177,7 @@ struct CharacterImpl : BodyShapes<Character> {
         setState(Character::State::reloading);
     }
 
-    bool readyToFire() {
+    virtual bool readyToFire() const override {
         return state() == Character::State::ready;
     }
 
@@ -956,6 +956,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
         m->update_me(spawn_after(6, [=]{
             createBombBat();
             createCharacterRescueOpportunity();
+            createBird(bt_grey);
         }));
 
         // create birds

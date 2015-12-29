@@ -355,6 +355,9 @@ void Controller::onDraw() {
                 v += g_dt;
             }
         }
+        if (c.readyToFire()) {
+            SpriteProgram::draw(characters.arrow, pmv() * mat4::translate({c.position().x, c.position().y + 1.4f, 0}));
+        }
     }
 
     SpriteProgram::draw(m->game->actors<Bomb>       (), pmv());
@@ -430,7 +433,6 @@ void Controller::onDraw() {
             state.play_btn->draw(pmv());
         }
     }
-
     /*auto ctx = m->shadeProgram->context();
     ctx->tint = {1, 244/255.0f, 240/255.0f};
     ctx->texture = m->flame->activateTexture();
