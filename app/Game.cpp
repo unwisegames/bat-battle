@@ -34,7 +34,7 @@ using namespace cpplinq;
 
 enum Group : cpGroup { gr_bird = 1, gr_character };
 
-enum Category : cpBitmask { cat_all = 1<<0, cat_character = 1<<1, cat_halo = 1<<2, cat_play = 1<<3 };
+enum Category : cpBitmask { cat_all = 1<<0, cat_character = 1<<1, cat_halo = 1<<2, cat_play = 1<<3, cat_grave = 1<<4 };
 
 enum CollisionType : cpCollisionType { ct_universe = 1, ct_abyss, ct_ground, ct_attack, ct_startle, ct_barrier, ct_wall };
 
@@ -81,7 +81,7 @@ struct PersonalSpaceImpl : BodyShapes<PersonalSpace> {
 
 struct GraveImpl : BodyShapes<Grave> {
     GraveImpl(cpSpace * space, vec2 const pos)
-    : BodyShapes{space, newStaticBody(pos), sensor(atlas2.grave)}
+    : BodyShapes{space, newStaticBody(pos), sensor(atlas2.grave), {CP_NO_GROUP, cat_grave, ~CP_ALL_CATEGORIES}}
     {
         setState(Grave::State::rising);
     }
