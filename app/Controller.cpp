@@ -332,6 +332,7 @@ void Controller::onDraw() {
     sprite_context->alpha = 1;
 
     SpriteProgram::draw(background.bg, pmv() * mat4::translate({0, 9.1, 0}));
+    SpriteProgram::draw(m->game->actors<Grave>                  (), pmv());
 
     for (auto const & b : m->game->actors<Bird>()) {
         if (b.isFlying()) {
@@ -369,12 +370,15 @@ void Controller::onDraw() {
     SpriteProgram::draw(m->game->actors<BombBat>                (), pmv());
     SpriteProgram::draw(m->game->actors<Blast>                  (), pmv());
     SpriteProgram::draw(m->game->actors<CharacterExplosion>     (), pmv());
-    SpriteProgram::draw(m->game->actors<Grave>                  (), pmv());
     SpriteProgram::draw(m->game->actors<Character>              (), pmv());
 
     for (auto const & d : m->game->actors<Dart>()) {
         if (d.active) {
-            SpriteProgram::drawText(std::to_string(d.score), font.glyphs, 0, pmv() * mat4::translate({d.position().x, d.position().y + float(0.6), 0}) * mat4::scale(0.3), -0.1);
+            auto sc = d.score;
+            auto posX = d.position().x;
+            auto posY = d.position().y;
+            //SpriteProgram::drawText(std::to_string(d.score), font.glyphs, 0, pmv() * mat4::translate({d.position().x, d.position().y + float(0.6), 0}) * mat4::scale(0.3), -0.1);
+            SpriteProgram::drawText(std::to_string(sc), font.glyphs, 0, pmv() * mat4::translate({posX, posY + float(0.6), 0}) * mat4::scale(0.3), -0.1);
 
             std::vector<NormalShadeVertex> buf;
             auto ctx = m->shadeProgram->context();

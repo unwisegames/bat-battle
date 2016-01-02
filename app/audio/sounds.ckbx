@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <bank name="sounds" volumeControls="true">
-    <music name="music"         source="theme.mp3"                                           />
+    <music name="music"         source="theme.mp3"                                           /> 
     <music name="ambience"      source="ambience.mp3"                                        />
     <music name="tension"       source="tension.mp3"                                         />
     <music name="fail"          source="fail.mp3"                                            />
-    <music name="theme"         source="epic.mp3"                                            />
+    <music name="theme"         source="epictheme.mp3"                                       />
     <sound name="aim"           source="aim.wav"                format="adpcm" pooled="true" />
     <sound name="spit"          source="spit.wav"               format="adpcm" pooled="true" />
     <sound name="shoot"         source="shoot.wav"              format="adpcm" pooled="true" />

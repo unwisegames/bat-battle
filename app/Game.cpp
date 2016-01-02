@@ -154,7 +154,7 @@ struct CharacterImpl : BodyShapes<Character> {
             switch (state()) {
                 case Character::State::reloading:
                     setState(Character::State::ready);
-                    setVelocity({0, 2});
+                    cpBodyApplyImpulseAtLocalPoint(body(), {0, 3}, {0, 0});
                     break;
                 case Character::State::shooting:
                     dontAim();
@@ -173,7 +173,7 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 
     void reload() {
-        setVelocity({0, 0});
+        //setVelocity({0, 0});
         setState(Character::State::reloading);
     }
 
@@ -220,8 +220,48 @@ struct CharacterImpl : BodyShapes<Character> {
     }
 
     void startle() {
-        setVelocity({0, 3});
+        cpBodyApplyImpulseAtLocalPoint(body(), {0, 3}, {0, 0});
         setState(Character::State::startled);
+    }
+
+    static void eachArbiter(cpBody * body, cpArbiter * arb, CharacterImpl * c)
+    {
+        CP_ARBITER_GET_SHAPES(arb, me, it);
+
+        if (cpShapeGetCollisionType(it) == ct_ground) {
+            switch (c->state()) {
+                case Character::State::startled:
+                    if (c->velocity().y < 1) {
+                        c->setState(Character::State::determined);
+                        c->update_me(spawn_after(rand<double>(0.1, 0.8), [=]{
+                            c->setState(Character::State::reloading);
+                        }));
+                    } else {
+                        cpBodyApplyImpulseAtLocalPoint(body, {0, 3}, {0, 0});
+                    }
+                    break;
+                //case Character::State::crying:
+                case Character::State::rescued:
+                    c->setVelocity({0, 0});
+                    c->setState(Character::State::reloading);
+                    break;
+                case Character::State::celebrating:
+                    cpBodyApplyImpulseAtLocalPoint(body, {0, rand<float>(6, 8.5)}, {0, 0});
+                    break;
+                case Character::State::ready:
+                    cpBodyApplyImpulseAtLocalPoint(body, {0, 3}, {0, 0});
+                    break;
+                case Character::State::dead:
+                    cpBodyApplyImpulseAtLocalPoint(body, {0, 1}, {0, 0});
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    virtual void doUpdate(float) override {
+        cpBodyEachArbiter(body(), (cpBodyArbiterIteratorFunc)eachArbiter, this);
     }
 };
 
@@ -250,8 +290,8 @@ struct BirdImpl : BodyShapes<Bird> {
     void newFrame(bool loopChanged) override {
         if (!loopChanged && frame() == 0) {
             if (isFlying() && bird_type == bt_yellow && resilience == 0) {
-                setVelocity({0, 0});
-                cpBodyApplyImpulseAtLocalPoint(body(), to_cpVect({rand<float>(-0.5, 0.5), rand<float>(-0.5, 0.5)}), to_cpVect({0, 0}));
+                //setVelocity({0, 0});
+                cpBodyApplyImpulseAtLocalPoint(body(), to_cpVect({rand<float>(-1.0, 1.0), rand<float>(-0.5, 0.5)}), to_cpVect({0, 0}));
             }
         }
     }
@@ -274,7 +314,9 @@ struct BirdImpl : BodyShapes<Bird> {
 //                setForce((unit(desired_pos - position()) * speed) + -WORLD_GRAVITY);
                 auto dv = unit(desired_pos - position()) * speed - velocity();
                 float epsilon = 0.01;
-                setForce(((length_sq(dv) > epsilon) * F * unit(dv)) + -WORLD_GRAVITY);
+
+                auto force = ((length_sq(dv) > epsilon) * F * unit(dv)) + -WORLD_GRAVITY;
+                setForce(force);
             } else {
                 // maintain velocity
                 setVelocity((escapeVel * speed));// + -WORLD_GRAVITY);
@@ -287,7 +329,7 @@ struct BirdImpl : BodyShapes<Bird> {
     }
 
     bool canGrabCharacter() {
-        return isFlying() && !hasCaptive;
+        return isFlying() && !hasCaptive && !fromWhence;
     }
 
     bool canBeShot() {
@@ -339,7 +381,11 @@ struct BombBatImpl : BodyShapes<BombBat> {
         }*/
         auto dv = unit(desired_pos - position()) * 1 - velocity(); // "1" = speed
         float epsilon = 0.01;
-        setForce(((length_sq(dv) > epsilon) * F * unit(dv)) + -WORLD_GRAVITY);
+
+        auto force = ((length_sq(dv) > epsilon) * F * unit(dv)) + -WORLD_GRAVITY;
+        //std::cerr << "BombBatImpl::doUpdate force " << force.x << ", " << force.y << "\n";
+
+        setForce(force);
     }
 
     array<ConstraintPtr, 2> holdBomb(cpBody & b) {
@@ -516,7 +562,8 @@ struct CharacterDetonatedBomb {
 struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, PersonalSpaceImpl, GraveImpl, BombBatImpl, BombImpl, BlastImpl, CharacterExplosionImpl, BombBatCarrotImpl> {
     ShapePtr worldBox{sensor(boxShape(20, 30, {0, 0}, 0), ct_universe)};
     ShapePtr abyssWalls[3];
-    ShapePtr ground{segmentShape({-10, 2}, {10, 2})};
+    //ShapePtr ground{segmentShape({-10, 2}, {10, 2})};
+    ShapePtr ground2{boxShape(20, 2, {0, 1}, 0)};
     ShapePtr attackLine{sensor(segmentShape({-10, ATTACK_LINE_Y}, {10, ATTACK_LINE_Y}), ct_attack)};
     ShapePtr startleLine;
     ShapePtr lbarrier{segmentShape({-9, 2}, {-9, 2.5})};
@@ -639,7 +686,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
     // send random birds after character
     auto targetCharacter = [=](CharacterImpl & c) {
         auto available = (from(m->actors<BirdImpl>()) >> mutable_ref()
-                          >> where([&](BirdImpl const & b) { return !m->hasCaptive(b) && b.position().y > ATTACK_LINE_Y && b.isFlying(); }));
+                          >> where([&](BirdImpl const & b) { return !m->hasCaptive(b) && b.position().y > ATTACK_LINE_Y && b.isFlying() && !b.fromWhence; }));
         if (available >> any()) {
             // send first available bird after c for now
             auto & b = (available >> first()).get();
@@ -652,14 +699,17 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
     auto retargetBirdsChasingMe = [=](CharacterImpl & character) {
         // send birds after new target
         from(m->targets) >> for_each([&](auto targets) {
-            if (targets.c == &character && targets.b->isFlying()) {
+            auto isFlying = targets.b->isFlying(); // OCC EXCEPT
+            auto isCharacter = targets.c == &character;
+            //if (targets.c == &character && targets.b->isFlying()) {
+            if (isCharacter && isFlying) {
                 if (targets.b->position().y > ATTACK_LINE_Y) {
                     newTarget(*targets.b);
                 } else {
                     // flying too low to target new character
-                    m->targets >> removeIf([&](auto && target) { return target.b == targets.b; });
                     vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
                     targets.b->setDesiredPos(atp);
+                    m->targets >> removeIf([&](auto && target) { return target.b == targets.b; });
                 }
             }
         });
@@ -676,15 +726,21 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
 
         archiveCharacterStats(c.stats);
         m->deadChars.emplace_back(c.type_);
-        retargetBirdsChasingMe(c);
+        //retargetBirdsChasingMe(c);
         m->removeWhenSpaceUnlocked(c);
     };
 
     auto characterKilled = [=]() {
         --m->rem_chars;
-        if (m->rem_chars == 0) {
-            m->game_over = true;
+        if (m->rem_chars == 0 || !m->anybodyLeft()) {
+            /*m->game_over = true;
 
+            m->update_me(spawn_after(0.5, [&]{
+                tension_stop();
+                lose();
+            }));
+            m->update_me(spawn_after(3.0, [&]{ gameOver(); }));
+            */
             m->update_me(spawn_after(0.5, [&]{
                 tension_stop();
                 lose();
@@ -794,13 +850,14 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
                             vec2 atp{rand<float>(-6, 6), ATTACK_LINE_Y};
                             cjb.b->setDesiredPos(atp);
                         }
+                    } else {
+                        retargetBirdsChasingMe(c);
                     }
                     auto pos = c.position();
                     m->update_me(spawn_after(rand<double>(0.01, 0.2), [=]{
                         playCharacterExplosion(pos);
                     }));
                     removeCharacter(c);
-                    retargetBirdsChasingMe(c);
 
                     if (!c.isDead()) {
                         characterKilled();
@@ -832,6 +889,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
                             m->update_me(spawn_after(rand<double>(0.01, 0.2), [=]{
                                 playCharacterExplosion(pos);
                             }));
+
+                            m->targets >> removeIf([&](auto && target) { return target.b == &b; });
                             m->removeWhenSpaceUnlocked(b);
                         }
                     }
@@ -858,9 +917,13 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
 
         //generateLevel();
 
-        cpShapeSetCollisionType (&*m->ground, ct_ground);
-        cpShapeSetFriction      (&*m->ground, 1);
-        cpShapeSetFilter        (&*m->ground, {CP_NO_GROUP, cat_play, cat_play});
+        //cpShapeSetCollisionType (&*m->ground, ct_ground);
+        //cpShapeSetFriction      (&*m->ground, 1);
+        //cpShapeSetFilter        (&*m->ground, {CP_NO_GROUP, cat_play, cat_play});
+
+        cpShapeSetCollisionType (&*m->ground2, ct_ground);
+        cpShapeSetFriction      (&*m->ground2, 1);
+        cpShapeSetFilter        (&*m->ground2, {CP_NO_GROUP, cat_play, cat_play});
 
         cpShapeSetCollisionType (&*m->lslope, ct_barrier);
         cpShapeSetCollisionType (&*m->rslope, ct_barrier);
@@ -928,7 +991,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
             // that would immediately remove both impls. Not happy with this sol'n
             // but does the job for now.
             b.ignoreAbyss = true;
-            m->update_me(spawn_after(5, [&]{
+            m->update_me(spawn_after(2, [&]{
                 b.ignoreAbyss = false;
             }));
 
@@ -956,7 +1019,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
         m->update_me(spawn_after(6, [=]{
             createBombBat();
             createCharacterRescueOpportunity();
-            createBird(bt_grey);
+            createBird(bt_yellow);
         }));
 
         // create birds
@@ -1031,12 +1094,13 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
             }
 
             if (!m->anybodyLeft()) {
-                m->update_me(spawn_after(0.5, [&]{
-                    tension_stop();
-                    lose();
-                }));
-                m->update_me(spawn_after(3.0, [&]{ gameOver(); }));
-
+                if (m->rem_chars > 0) {
+                    m->update_me(spawn_after(0.5, [&]{
+                        tension_stop();
+                        lose();
+                    }));
+                    m->update_me(spawn_after(3.0, [&]{ gameOver(); }));
+                }
                 /*spawn([=, sleep = sleeper(m->update_me())]{
                     if (sleep(0.5)) {
                         tension_stop();
@@ -1059,7 +1123,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
                 try {
                     // send other birds after new target
                     from(m->targets) >> for_each([&](auto && targets) {
-                        if (targets.c == &character && targets.b != &bird && targets.b->isFlying()) {
+                        if (targets.c == &character && targets.b != &bird && targets.b->isFlying() && !targets.b->fromWhence) {
                             if (targets.b->position().y > ATTACK_LINE_Y) {
                                 newTarget(*targets.b);
                             } else {
@@ -1070,7 +1134,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
                             }
                         }
                     });
-                } catch(int e) {}
+                } catch(int) {}
             }
         }
         return true;
@@ -1281,8 +1345,12 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
             };
 
             if (bird.resilience > 0) {
+                screech();
                 bird.setAngle(0);
                 bird.setVelocity({0, 0});
+
+                auto vel = dart.velocity();
+                cpBodyApplyImpulseAtLocalPoint(bird.body(), to_cpVect(vel * 0.15), cpVect{0, 0});
 
                 --bird.resilience;
 
@@ -1322,13 +1390,14 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
     });
 
     m->onCollision([=](DartImpl & dart, NoActor<ct_ground> &, cpArbiter *) {
-        dart.active = false;
+        /*dart.active = false;
         float angle = brac::angle(dart.velocity());
         m->whenSpaceUnlocked([&] {
             cpSpaceRemoveBody(dart.space(), dart.body());
             cpBodySetType(dart.body(), CP_BODY_TYPE_STATIC);
             dart.setAngle(angle);
-        }, &dart);
+        }, &dart);*/
+        m->removeWhenSpaceUnlocked(dart);
     });
 
     m->onCollision([=](DartImpl & dart, CharacterImpl & character, cpArbiter * arb) {
@@ -1347,44 +1416,36 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
             if (!character.isDead()) {
                 die();
                 character.setState(Character::State::dead);
-                character.setVelocity({0, 1});
+                //character.setVelocity({0, 1});
+                //cpBodyApplyImpulseAtLocalPoint(character.body(), {0, 3}, {0, 0});
 
                 characterKilled();
 
-                retargetBirdsChasingMe(character);
+                if (!m->isCaptive(character)) {
+                    retargetBirdsChasingMe(character);
+                }
             }
         }
         return false;
     });
 
     m->onCollision([=](CharacterImpl & character, NoActor<ct_ground> &, cpArbiter * arb) {
-        return character.velocity().y < 1;
+        return character.velocity().y < 10.0f;
     });
 
     m->onPostSolve([=](CharacterImpl & character, NoActor<ct_ground> &, cpArbiter * arb) {
         if (cpArbiterIsFirstContact(arb)) {
             character.setAngle(0);
             cpBodySetAngularVelocity(character.body(), 0);
+
             switch (character.state()) {
-                case Character::State::startled:
-                    character.setState(Character::State::determined);
-                    m->update_me(spawn_after(rand<double>(0.1, 0.8), [&]{
-                        character.reload();
-                    }));
-                    break;
                 case Character::State::rescued:
-                    character.reload();
                     targetCharacter(character);
                     stopyays();
                     tension_start();
                     break;
                 case Character::State::celebrating:
                     yay();
-                    //character.setVelocity({0, rand<float>(3, 4.5)});
-                    character.setVelocity({0, rand<float>(6, 8.5)});
-                    break;
-                case Character::State::ready:
-                    character.setVelocity({0, 2});
                     break;
                 case Character::State::dead:
                     if (!m->isCaptive(character)) {
@@ -1476,12 +1537,22 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
             return cps1.c;
         };
 
-        auto c1 = whosePersonalSpace(ps1);
-        auto c2 = whosePersonalSpace(ps2);
 
-        // return false if either character is currently kidnapped
-        return !((from(m->cjb) >> any([&](auto && cjb) { return cjb.c == c1; }))
-                 || (from(m->cjb) >> any([&](auto && cjb) { return cjb.c == c2; })));
+        try
+        {
+            auto c1 = whosePersonalSpace(ps1);
+            auto c2 = whosePersonalSpace(ps2);
+
+            // return false if either character is currently kidnapped
+            return !((from(m->cjb) >> any([&](auto && cjb) { return cjb.c == c1; }))
+                     || (from(m->cjb) >> any([&](auto && cjb) { return cjb.c == c2; })));
+        }
+        catch (int)
+        {
+            std::cerr << "EXCEPTION in PersonalSpaceImpl collision handler";
+            return false;
+        }
+
     });
 
     m->onCollision([=](BirdImpl & bird, NoActor<ct_abyss> &, cpArbiter * arb) {
@@ -1540,7 +1611,7 @@ void Game::gameOver() {
 
 void Game::continueGame() {
     m->game_over = false;
-    //m->watch.start();
+    m->watch.start();
 
     auto newCharacter = [=](int persona, vec2 pos) {
         auto & c = m->emplace<CharacterImpl>(persona, pos);
