@@ -959,20 +959,20 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
         };
 
         auto createBird = [=](BirdType type) {
-            auto & b = m->emplace<BirdImpl>(type, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)}, BIRD_SPEED);
-            newTarget(b);
-            if (type == bt_grey) ++m->created_grey_bats;
-            else if (type == bt_yellow) ++m->created_yellow_bats;
-        };
-
-        auto createBombBat = [=] {
-            auto STARTPOS = vec2{rand<float>(-10, 10), top + 2};
-            auto CARROTPOS = vec2{clamp(rand<float>(STARTPOS.x - 5, STARTPOS.x + 5), -8, 8), rand<float>(top - 2.5, top - 5)};
-            auto & bb = m->emplace<BombBatImpl>(STARTPOS, CARROTPOS);
-            auto & bmb = m->emplace<BombImpl>(STARTPOS - vec2{0, 0.8});
-            m->bjb.insert(BatJointBomb{&bb, bb.holdBomb(*bmb.body()), &bmb});
-            auto & car = m->emplace<BombBatCarrotImpl>(CARROTPOS);
-            m->bbcr.insert(BombBatCarrotRel{&bb, &car});
+            if (type != bt_bomb) {
+                auto & b = m->emplace<BirdImpl>(type, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)}, BIRD_SPEED);
+                newTarget(b);
+                if (type == bt_grey) ++m->created_grey_bats;
+                else if (type == bt_yellow) ++m->created_yellow_bats;
+            } else {
+                auto STARTPOS = vec2{rand<float>(-10, 10), top + 2};
+                auto CARROTPOS = vec2{clamp(rand<float>(STARTPOS.x - 5, STARTPOS.x + 5), -8, 8), rand<float>(top - 2.5, top - 5)};
+                auto & bb = m->emplace<BombBatImpl>(STARTPOS, CARROTPOS);
+                auto & bmb = m->emplace<BombImpl>(STARTPOS - vec2{0, 0.8});
+                m->bjb.insert(BatJointBomb{&bb, bb.holdBomb(*bmb.body()), &bmb});
+                auto & car = m->emplace<BombBatCarrotImpl>(CARROTPOS);
+                m->bbcr.insert(BombBatCarrotRel{&bb, &car});
+            }
         };
 
         auto createCharacterRescueOpportunity = [=]() {
@@ -1017,7 +1017,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
         createCharacters();
 
         m->update_me(spawn_after(6, [=]{
-            createBombBat();
+            createBird(bt_bomb);
             createCharacterRescueOpportunity();
             createBird(bt_yellow);
         }));
@@ -1043,11 +1043,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
                 for (double t = 0; double dt = expSleep(t); t += dt) {
                     m->update_me(spawn_after(rand<double>(0, 1), [&] {
                         if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
-                            if (bird_type == bt_bomb) {
-                                createBombBat();
-                            } else {
-                                createBird(bird_type);
-                            }
+                            createBird(bird_type);
                         }
                     }));
                 }
