@@ -29,6 +29,37 @@
 
 //#include "levels.h"
 
+constexpr float ATTACK_LINE_Y = 6;
+
+// Temporary
+constexpr int   CHARACTERS = 8;
+// sum of following 3 constants should always = 1
+
+// Approximately how much the rate increases (relative
+// to its original value) for each doubling in time.
+constexpr float ARRIVAL_RATE_GROWTH_FACTOR = 0.3;
+
+// Scoring
+constexpr int   SCORE_DART_FIRED = 20;
+constexpr int   SCORE_CHAR_RESCUED = 150;
+constexpr int   SCORE_DART_INCREMENT = 10;
+
+struct BatParams {
+    float initialArrivalRate;
+    struct {
+        float initial;
+        float asymptotic;
+        float halfLife;
+    } speedProfile;
+};
+
+constexpr BatParams BAT_PARAMS[] = {
+    {1/7.0f  , {1, 4, 20}},
+    {1/20.0f , {1, 4, 20}},
+    {1/100.0f, {1, 4, 20}},
+};
+
+
 using namespace brac;
 using namespace cpplinq;
 
@@ -283,7 +314,7 @@ struct BirdImpl : BodyShapes<Bird> {
         //cpBodySetType(body(), CP_BODY_TYPE_KINEMATIC);
         bird_type = type;
         resilience = int(type);
-        speed = rand<float>(sp - (sp * 0.3), sp + (sp * 0.3));
+        speed = rand<float>(sp * (1 - 0.3), sp * (1 + 0.3));
         setForce(vec2{0, 10});
     }
 
@@ -958,9 +989,9 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
             for (auto & c : m->actors<CharacterImpl>()) c.initState();
         };
 
-        auto createBird = [=](BirdType type) {
+        auto createBird = [=](BirdType type, float speed) {
             if (type != bt_bomb) {
-                auto & b = m->emplace<BirdImpl>(type, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)}, BIRD_SPEED);
+                auto & b = m->emplace<BirdImpl>(type, vec2{rand<float>(-10, 10), rand<float>(top, top - 1)}, speed);
                 newTarget(b);
                 if (type == bt_grey) ++m->created_grey_bats;
                 else if (type == bt_yellow) ++m->created_yellow_bats;
@@ -1017,20 +1048,20 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
         createCharacters();
 
         m->update_me(spawn_after(6, [=]{
-            createBird(bt_bomb);
+            createBird(bt_bomb, 1);
             createCharacterRescueOpportunity();
-            createBird(bt_yellow);
+            createBird(bt_yellow, 1);
         }));
 
         // create birds
-        auto createBirds = [=](BirdType bird_type, double arrival_rate) {
+        auto createBirds = [=](BirdType bird_type) {
             auto expSleep = [=] {
                 auto sleep = sleeper(chan::spawn_killswitch(m->update_me(), -m->ticker_keepalive));
 
                 std::random_device rd;
                 std::mt19937 gen{rd()};
 
-                const double log_scale = ARRIVAL_RATE_GROWTH_FACTOR * arrival_rate / log(2);
+                const double log_scale = ARRIVAL_RATE_GROWTH_FACTOR * BAT_PARAMS[bird_type].initialArrivalRate / log(2);
 
                 return [=](double t) mutable {
                     double λ = log_scale * log(t + 2);
@@ -1043,16 +1074,19 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
                 for (double t = 0; double dt = expSleep(t); t += dt) {
                     m->update_me(spawn_after(rand<double>(0, 1), [&] {
                         if (from(m->actors<CharacterImpl>()) >> any([&](auto && c) { return m->isKidnappable(c); })) {
-                            createBird(bird_type);
+                            auto const & sp = BAT_PARAMS[bird_type].speedProfile;
+                            auto residual = powf(0.5f, t / sp.halfLife);
+                            auto speed = sp.asymptotic - (sp.asymptotic - sp.initial) * residual;
+                            createBird(bird_type, speed);
                         }
                     }));
                 }
             });
         };
 
-        createBirds(bt_grey, GREY_BAT_INITIAL_ARRIVAL_RATE);
-        createBirds(bt_yellow, YELLOW_BAT_INITIAL_ARRIVAL_RATE);
-        createBirds(bt_bomb, BOMB_BAT_INITIAL_ARRIVAL_RATE);
+        createBirds(bt_grey);
+        createBirds(bt_yellow);
+        createBirds(bt_bomb);
 
         // TEMPORARY: hard-coded creation of bomb bat
         /*m->update_me(spawn_after(4, [=]{

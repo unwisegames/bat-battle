@@ -11,29 +11,9 @@
 
 constexpr float LAUNCH_OFFSET = 1;
 const brac::vec2 WORLD_GRAVITY = {0, -10};
-constexpr float ATTACK_LINE_Y = 6;
 constexpr int   DART_TRAIL_SEGMENTS = 10;
 
-// Temporary
-constexpr int   CHARACTERS = 8;
-constexpr float BIRD_INTERVAL = 3.5;
-constexpr float BIRD_SPEED = 1;
-constexpr float MAX_SIMUL_BATS = 2;
-// sum of following 3 constants should always = 1
-constexpr float GREY_BAT_INITIAL_ARRIVAL_RATE = 1/7.0;
-constexpr float YELLOW_BAT_INITIAL_ARRIVAL_RATE = 1/20.0;
-constexpr float BOMB_BAT_INITIAL_ARRIVAL_RATE = 1/100.0;
-
-// Approximately how much the rate increases (relative
-// to its original value) for each doubling in time.
-constexpr float ARRIVAL_RATE_GROWTH_FACTOR = 0.3;
-
-// Scoring
-constexpr int   SCORE_DART_FIRED = 20;
-constexpr int   SCORE_BIRD_KILLED = 100;
-constexpr int   SCORE_CHAR_RESCUED = 150;
 constexpr int   SCORE_CHAR_SURVIVED = 1000;
-constexpr int   SCORE_DART_INCREMENT = 10;
 
 struct GameParams {
     int characters;
