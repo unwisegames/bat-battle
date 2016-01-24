@@ -606,6 +606,7 @@ struct Game::Members : Game::State, GameImpl<CharacterImpl, BirdImpl, DartImpl, 
     size_t created_grey_bats = 0;
     size_t created_yellow_bats = 0;
     channel<> ticker_keepalive;
+    channel<> ticker_keepalive_rsc;
     Relation<CharacterJointBird>        cjb;
     Relation<BirdTargetCharacter>       targets;
     Relation<CharacterShotDart>         csd;
@@ -1089,8 +1090,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
         createBirds(bt_bomb);
 
         auto characterRescueLoop = [=]() {
-            m->ticker_keepalive = {};
-            spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker_keepalive)), interval = 20]{
+            m->ticker_keepalive_rsc = {};
+            spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker_keepalive_rsc)), interval = 20]{
                 while (sleep(interval)) {
                     if (m->rem_chars < CHARACTERS) {
                         auto diff = CHARACTERS - m->rem_chars;
