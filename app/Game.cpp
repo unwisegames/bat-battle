@@ -1049,7 +1049,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
 
         m->update_me(spawn_after(6, [=]{
             createBird(bt_bomb, 1);
-            createCharacterRescueOpportunity();
+            //createCharacterRescueOpportunity();
             createBird(bt_yellow, 1);
         }));
 
@@ -1087,6 +1087,22 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
         createBirds(bt_grey);
         createBirds(bt_yellow);
         createBirds(bt_bomb);
+
+        auto characterRescueLoop = [=]() {
+            m->ticker_keepalive = {};
+            spawn([=, sleep = sleeper(chan::spawn_killswitch(m->update_me(), --m->ticker_keepalive)), interval = 20]{
+                while (sleep(interval)) {
+                    if (m->rem_chars < CHARACTERS) {
+                        auto diff = CHARACTERS - m->rem_chars;
+                        double ratio = (float)diff / (float)CHARACTERS;
+                        if (rand<double>(0, 1) < ratio) {
+                            createCharacterRescueOpportunity();
+                        }
+                    }
+                }
+            });
+        };
+        characterRescueLoop();
 
         // TEMPORARY: hard-coded creation of bomb bat
         /*m->update_me(spawn_after(4, [=]{
