@@ -350,7 +350,7 @@ struct BirdImpl : BodyShapes<Bird> {
                 setForce(force);
             } else {
                 // maintain velocity
-                setVelocity((escapeVel * speed));// + -WORLD_GRAVITY);
+                setVelocity(escapeVel * clamp(speed, 0, 2.5));// + -WORLD_GRAVITY);
             }
         }
     }
@@ -764,7 +764,8 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
 
     auto characterKilled = [=]() {
         --m->rem_chars;
-        if (m->rem_chars == 0 || !m->anybodyLeft()) {
+        if ((m->rem_chars == 0 || !m->anybodyLeft()) && !m->end_triggered) {
+            m->end_triggered = true;
             /*m->game_over = true;
 
             m->update_me(spawn_after(0.5, [&]{
@@ -1141,7 +1142,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
             }
 
             if (!m->anybodyLeft()) {
-                if (m->rem_chars > 0) {
+                if (m->rem_chars > 0 && !m->end_triggered) {
                     m->update_me(spawn_after(0.5, [&]{
                         tension_stop();
                         lose();

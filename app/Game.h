@@ -153,6 +153,7 @@ public:
         std::list<TextAlert> alerts;
         GameParams params;
         bool game_over = false;
+        bool end_triggered = false;
     };
 
     brac::Signal<void()> show_menu;
