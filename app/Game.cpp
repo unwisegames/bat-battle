@@ -37,7 +37,7 @@ constexpr int   CHARACTERS = 8;
 
 // Approximately how much the rate increases (relative
 // to its original value) for each doubling in time.
-constexpr float ARRIVAL_RATE_GROWTH_FACTOR = 0.3;
+constexpr float ARRIVAL_RATE_GROWTH_FACTOR = 0.2;
 
 // Scoring
 constexpr int   SCORE_DART_FIRED = 20;
@@ -54,9 +54,9 @@ struct BatParams {
 };
 
 constexpr BatParams BAT_PARAMS[] = {
-    {1/7.0f  , {1, 4, 20}},
-    {1/20.0f , {1, 4, 20}},
-    {1/100.0f, {1, 4, 20}},
+    {1/5.0f  , {1, 4, 40}},
+    {1/10.0f , {1, 4, 40}},
+    {1/100.0f, {1, 4, 40}},
 };
 
 
@@ -1049,10 +1049,9 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
 
         createCharacters();
 
-        m->update_me(spawn_after(6, [=]{
-            createBird(bt_bomb, 1);
-            //createCharacterRescueOpportunity();
-            createBird(bt_yellow, 1);
+        m->update_me(spawn_after(4, [=]{
+            // get the party started
+            createBird(bt_grey, 1);
         }));
 
         // create birds
@@ -1143,6 +1142,7 @@ Game::Game(SpaceTime & st, GameMode mode, float top, std::shared_ptr<TimerImpl> 
 
             if (!m->anybodyLeft()) {
                 if (m->rem_chars > 0 && !m->end_triggered) {
+                    m->end_triggered = true;
                     m->update_me(spawn_after(0.5, [&]{
                         tension_stop();
                         lose();
@@ -1658,6 +1658,7 @@ void Game::gameOver() {
 }
 
 void Game::continueGame() {
+    m->end_triggered = false;
     m->game_over = false;
     m->watch.start();
 
